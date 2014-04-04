@@ -1,44 +1,54 @@
-(ns ubergraph.core
-  (:require [ubergraph.protocols :as up]))
+(ns ubergraph.core-take1)
 
-;; Concrete implemenation of ubergraph.protocols
+(defrecord Ubergraph [node-map edge-map allow-parallel? undirected?])
 
-(declare node-seq edge-seq node-info)
+; node-map is a {node-id node}
+; edge-map is a {edge-id edge}
+; node is a {:id node-id :out-edges {dest-id #{edge-ids}} :in-edges {src-id #{edge-ids}} 
+;            :in-degree number :out-degree number :attrs attribute-map}
+; edge is a {:id edge-id :src node-id :dest node-id :attrs attribute-map}
 
-(defrecord Ubergraph [node-map allow-parallel? undirected? max-edge-id attrs reverse-edges])
-; A node-id is anything the user wants it to be -- a number, a keyword, a data structure
-; An edge is something with a src, a dest, and an id that can be used to look up attributes
+; edge-ids are keywords in the namespace ubergraph.edge
+; node-ids are anything else
 
-; node-map is a {node-id node-info}
-; node-info is a {:out-edges {dest-id #{edge}} :in-edges {src-id #{edge}} 
-;                 :in-degree number :out-degree number}
-; edge is either Edge or UndirectedEdge
+(defn edge-id? [o] (and (keyword? o) (= "ubergraph.edge" (namespace o))))
+(defn node-id? [o] (not (edge-id? o)))
 
-(defrecord NodeInfo [out-edges in-edges out-degree in-degree])
-(defrecord UbergraphEdge [id src dest])
-(defrecord UbergraphUndirectedEdge [id src dest duplicate])
+(defrecord Node [id out-edges in-edges attrs])
+(defrecord Edge [id src dest attrs])
 
-(defn edge? [o] (or (instance? Edge o) (instance? UndirectedEdge o)))
+(defn node? [o] (instance? Node o))
+(defn edge? [o] (instance? Edge o))
+
+; An undirected edge stores a link to its counterpart edge in undirected
+; and a forward field which will be marked as true for one of the directions
+; and false for the other direction.
+(defrecord UndirectedEdge [id src dest attrs undirected forward]) 
 (defn undirected-edge? [o] (instance? UndirectedEdge o))
 
-(defn node-seq [g] (keys (:node-map g)))
-(defn edge-seq
-  "Return a sequence of all edges, undirected edges appear only once"
-  [g] (for [node (node-seq g),
-            edge (:out-edges node),
-            :when (not (:duplicate edge))]
-        edge))
+(defn node-id-seq [g] (keys (:node-map g)))
+(defn node-seq [g] (vals (:node-map g)))
+(defn edge-id-seq [g] (keys (:edge-map g)))
+(defn edge-seq [g] (vals (:edge-map g)))
 
 ; A node or edge can always be substituted for a node-id or edge-id, respectively,
 ; but if you know you have a node or edge, sometimes you can get the information
 ; you need without going through the graph.
 
-(defn node-info [g node]
-  (get-in g [:node-map node]))
-  
+(defn get-node [g node-id] 
+  (if (node? node-id) node-id ((:node-map g) node-id)))
+(defn get-edge [g edge-id] 
+  (if (edge? edge-id) edge-id ((:edge-map g) edge-id)))
+(defn get-object [g id]
+  (cond
+    (or (node? id) (edge? id)) id
+    (edge-id? id) ((:edge-map g) id)
+    :else ((:node-map g) id)))
 
-
-
+(defn id [o]
+  (cond
+    (or (node? o) (edge? o) (edge-id? o)) (:id o)
+    :else o))
 
 (defn out-edges
   ([g node-id] (out-edges (get-node g node-id)))
