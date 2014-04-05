@@ -5,7 +5,21 @@
 
 (declare node-seq edge-seq node-info)
 
-(defrecord Ubergraph [node-map allow-parallel? undirected? max-edge-id attrs reverse-edges])
+(defrecord Ubergraph [node-map allow-parallel? undirected? max-edge-id attrs reverse-edges]
+  up/Graph
+  (nodes [g] (keys (:node-map g)))
+  (edges [g] (for [[node node-info] (:node-map g)
+                   edge (:out-edges node-info),
+                   :when (not (:duplicate edge))]
+               edge))
+  (edges [g n1 n2] (get-in g [:node-map n1 :out-edges n2]))
+  (has-node? [g node] (boolean (get-in g [:node-map node])))
+  (has-edge? [g n1 n2] (boolean (seq (up/edges g n1 n2))))
+  (successors [g] (partial up/successors g))
+  (successors [g node] (map up/dest (up/out-edges g node)))
+  (out-degree [g node] (get-in g [:node-map node :out-degree]))
+  (out-edges [g] (partial up/out-edges g)) 
+  (out-edges [g node] (apply concat (vals (get-in g [:node-map node :out-edges])))))
 ; A node-id is anything the user wants it to be -- a number, a keyword, a data structure
 ; An edge is something with a src, a dest, and an id that can be used to look up attributes
 
@@ -18,8 +32,8 @@
 (defrecord UbergraphEdge [id src dest])
 (defrecord UbergraphUndirectedEdge [id src dest duplicate])
 
-(defn edge? [o] (or (instance? Edge o) (instance? UndirectedEdge o)))
-(defn undirected-edge? [o] (instance? UndirectedEdge o))
+(defn edge? [o] (or (instance? UbergraphEdge o) (instance? UbergraphUndirectedEdge o)))
+(defn undirected-edge? [o] (instance? UbergraphUndirectedEdge o))
 
 (defn node-seq [g] (keys (:node-map g)))
 (defn edge-seq
