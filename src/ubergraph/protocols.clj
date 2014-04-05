@@ -53,18 +53,7 @@
   (remove-edges* [g edges] "Removes edges from graph g. See remove-edges")
   (remove-all [g] "Removes all nodes and edges from graph g"))
 
-; The old AttrGraph protocol is insufficient.
-
-;(defprotocol AttrGraph
-;  (add-attr [g node k v] [g n1 n2 k v] "Add an attribute to node or edge")
-;  (remove-attr [g node k] [g n1 n2 k] "Remove an attribute from a node or edge")
-;  (attr [g node k] [g n1 n2 k] "Return the attribute on a node or edge")
-;  (attrs [g node] [g n1 n2] "Return all attributes on a node or edge"))
-
-; One option is to make the attr protocol functions take a node or edge.
-; Implementations could test for implementation of Edge protocol to discriminate.
-; Could also keep around the n1,n2 forms of the protocol functions for backwards
-; comaptibility, or where you know you don't have multiple edges between a pair of nodes.
+; Modify AttrGraph protocol to also take edge
 (defprotocol AttrGraph
   (add-attr [g node-or-edge k v] [g n1 n2 k v] "Add an attribute to node or edge")
   (remove-attr [g node-or-edge k] [g n1 n2 k] "Remove an attribute from a node or edge")
