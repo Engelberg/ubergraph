@@ -189,18 +189,14 @@
           [reverse-edge (get-in g [:reverse-edges edge])]
           (-> g
             (update-in [:attrs] dissoc edge reverse-edge)
-            (update-in [:node-map src]
-                       (->
-                         (update-in [:out-edges dest] disj edge)
-                         (update-in [:in-edges dest] disj reverse-edge)
-                         (update-in [:in-degree] dec)
-                         (update-in [:out-degree] dec)))
-            (update-in [:node-map dest]
-                       (->                       
-                         (update-in [:out-edges src] disj reverse-edge)
-                         (update-in [:in-edges src] disj edge)
-                         (update-in [:in-degree] dec)
-                         (update-in [:out-degree] dec))))
+            (update-in [:node-map src :out-edges dest] disj edge)
+            (update-in [:node-map src :in-edges dest] disj reverse-edge)
+            (update-in [:node-map src :in-degree] dec)
+            (update-in [:node-map src :out-degree] dec)
+            (update-in [:node-map dest :out-edges src] disj reverse-edge)
+            (update-in [:node-map dest :in-edges src] disj edge)
+            (update-in [:node-map dest :in-degree] dec)
+            (update-in [:node-map dest :out-degree] dec))
           (-> g
             (update-in [:edge-map] dissoc edge)
             (update-in [:node-map src :out-edges dest] disj edge)
