@@ -11,7 +11,8 @@
   up/Graph
   (nodes [g] (keys (:node-map g)))
   (edges [g] (for [[node node-info] (:node-map g)
-                   edge (:out-edges node-info),
+                   [dest edges] (:out-edges node-info),
+                   edge edges
                    :when (not (:duplicate edge))]
                edge))
   (edges [g n1 n2] (get-in g [:node-map n1 :out-edges n2]))
@@ -199,17 +200,13 @@
                          (update-in [:out-edges src] disj reverse-edge)
                          (update-in [:in-edges src] disj edge)
                          (update-in [:in-degree] dec)
-                         (update-in [:out-degree] dec)))
+                         (update-in [:out-degree] dec))))
           (-> g
-            (update-in [:attrs] dissoc edge)
-            (update-in [:node-map src]
-                       (->
-                         (update-in [:out-edges dest] disj edge)
-                         (update-in [:out-degree] dec)))
-            (update-in [:node-map dest]
-                       (->
-                         (update-in [:in-edges src] disj edge)
-                         (update-in [:in-degree] dec))))))
+            (update-in [:edge-map] dissoc edge)
+            (update-in [:node-map src :out-edges dest] disj edge)
+            (update-in [:node-map src :out-degree] dec)
+            (update-in [:node-map dest :in-edges src] disj edge)
+            (update-in [:node-map dest :in-degree] dec)))
         g)))
         
 (defn- swap-edge [edge]
