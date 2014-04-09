@@ -378,7 +378,7 @@ as Loom's build-graph."
                    
                    ;; edge
                    (and (vector? init) (#{2,3} (count init)))
-                   (add-edge g [(init 0) (init 1) (number->map (init 2))])             
+                   (add-edge g [(init 0) (init 1) (number->map (get init 2))])             
                    ;; node
                    :else (add-node g init)))]
     (reduce build g inits)))
