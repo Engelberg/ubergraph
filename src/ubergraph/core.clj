@@ -365,7 +365,6 @@ as Loom's build-graph."
                            undirected-edges (for [e (up/edges init),
                                                   :when (undirected-edge? e)]
                                               [(up/src e) (up/dest e) (up/attrs init e)])
-                           _ (println directed-edges undirected-edges)
                            new-g (up/add-directed-edges* new-g directed-edges)
                            new-g (up/add-undirected-edges* new-g undirected-edges)]
                        new-g))
