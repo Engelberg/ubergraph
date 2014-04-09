@@ -1,10 +1,38 @@
 (ns ubergraph.protocols)
 
+;Summary of changes from Loom's protocols:
+;
+;Graph protocol:
+;(out-edges g node) and partial application (out-edges g) provide all outgoing edges
+
+;Digraph protocol:
+;(in-edges g node) and partial application (in-edges g) provide all incoming edges
+
+;WeightedGraph protocol has added to it the following arity:
+;(weight g e) where e is an edge
+
+;In AttrGraph protocol, all the arities that used to be for nodes only, for example,
+; (add-attr g node k v)
+; now are semantically overloaded to be
+; (add-attr g node-or-edge k v)
+; In other words, every place you can use a node in the AttrGraph protocol, you now can also
+; use an edge, and the protocol must be implemented to detect whether you are using 
+; a node or an edge.
+
+; A new protocol that is essential to all graphs is the new Edge protocol
+; which defines the notion of an edge to be something you can call src and dest on.
+
+; Also there are three new recommended protocols:
+; UndirectedGraph for undirected graphs
+; QueryableGraph for attribute graphs and multigraphs
+; MixedDirectionGraph for graphs which support a mixture of directed and undirected edges
+;    within the same graph
+
+
 (defprotocol Graph
   (nodes [g] "Return a collection of the nodes in graph g")
   ; Add ability to enumerate all edges between n1 and n2
-  (edges [g] [g n1 n2] "Edges in g. May return each edge twice in an undirected graph
-                        (edges g n1 n2) returns all edges from n1 to n2")
+  (edges [g] "Edges in g. May return each edge twice in an undirected graph")
   (has-node? [g node] "Return true when node is in g")
   (has-edge? [g n1 n2] "Return true when an edge from n1 to n2 is in g")
   (successors [g] [g node] "Return direct successors of node, or (partial successors g)")
@@ -37,6 +65,12 @@
   (src [edge] "Return the source end of the edge")
   (dest [edge] "Return the destination end of the edge"))
 
+; Default implementation for vectors
+(extend-type clojure.lang.PersistentVector
+  Edge
+  (src [edge] (get edge 0))
+  (dest [edge] (get edge 1)))  
+
 ; Modify the weight protocol function to take an edge
 ; (weight n1 n2) remains for backwards compatibility, but would be discouraged
 ; since algorithms using that form won't work properly with multigraphs.
@@ -65,12 +99,12 @@
 ; For undirected graph algorithms, it is useful to know the connection between the
 ; two sides of an undirected edge, so we can keep attributes and weight in sync
 ; and add/remove or otherwise mark them in sync.
-(defprotocol UndirectedEdge
+(defprotocol UndirectedGraph
   (reverse-edge [g edge] "Returns the other direction of this edge in graph g"))
 
 ; We need a way to retrieve edges that is friendly to both regular and multi-graphs,
 ; but especially important for multi-graphs.
-(defprotocol Query
+(defprotocol QueryableGraph
   (find-edges [g query] "Returns all edges that match the query")
   (find-edge [g query] "Returns first edge that matches the query"))
 
@@ -85,3 +119,9 @@
 ;    finds all edges leading to :Chicago with :airline :Delta and 
 ;    :time :afternoon in edge attributes
 
+; It would be nice to have a way to incorporate both undirected and directed edges
+; into the same graph structure.
+
+(defprotocol MixedDirectionGraph
+  (add-directed-edges* [g edge] "Adds directed edges regardless of the graph's undirected/directed default")
+  (add-undirected-edges* [g edge] "Adds undirected edges regardless of the graph's undirected/directed default"))
