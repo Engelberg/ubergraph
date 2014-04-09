@@ -42,7 +42,7 @@
   up/EditableGraph
   (add-nodes* [g nodes] (reduce add-node g nodes))
   ; edge definition should be [src dest] or [src dest weight] or [src dest attribute-map]
-  (add-edges* [g edge-definitions] (reduce (fn [g edge] (apply add-edge g edge)) edge-definitions)) 
+  (add-edges* [g edge-definitions] (reduce (fn [g edge] (add-edge g edge)) g edge-definitions)) 
   (remove-nodes* [g nodes] (reduce remove-node g nodes))
   (remove-edges* [g edges] (reduce remove-edge g edges))
   (remove-all [g] (Ubergraph. {} allow-parallel? undirected? 0 {} {}))
@@ -95,7 +95,10 @@
 
 (defn- remove-node
   [g node]
-  (update-in g [:node-map] dissoc node))
+  (-> g
+    (up/remove-edges* (up/out-edges g node))
+    (up/remove-edges* (up/in-edges g node))    
+    (update-in [:node-map] dissoc node)))
 
 (def fconj (fnil conj #{}))
 (def finc (fnil inc 0))
@@ -168,21 +171,29 @@
     (Ubergraph. new-node-map (:allow-parallel? g) (:undirected? g) backward-edge-id new-attrs new-reverse-edges)))
 
 (defn add-edge
-  ([g src dest] (add-edge g src dest nil))
-  ([g src dest attributes]
-    (cond
-      (and (not (:allow-parallel? g)) (get-edge g src dest))
-      (update-in g [:attrs (get-edge g src dest)]
-                 merge attributes)
+  [g [src dest attributes]]
+  (cond
+    (and (not (:allow-parallel? g)) (get-edge g src dest))
+    (update-in g [:attrs (get-edge g src dest)]
+               merge attributes)
     
-      (:undirected? g) (add-undirected-edge g src dest attributes)
-      :else (add-directed-edge g src dest attributes))))
+    (:undirected? g) (add-undirected-edge g src dest attributes)
+    :else (add-directed-edge g src dest attributes)))
  
 
 (defn- remove-edge
   [g edge]
-  ; Check whether edge exists before deleting
-  (let [src (:src edge)
+  ; Check whether edge exists before deleting  
+  (let [edge (cond 
+               (and (vector? edge) (= (count edge) 2))
+               (find-edge g (edge 0) (edge 1)),
+               (and (vector? edge) (= (count edge) 3) (number? (edge 2)))
+               (find-edge g {:src (edge 0), :dest (edge 1), :weight (edge 2)})
+               (and (vector? edge) (= (count edge) 3) (map? (edge 3)))
+               (find-edge g (assoc (edge 2) :src (edge 0) :dest (edge 1)))
+               :else
+               edge),
+        src (:src edge)
         dest (:dest edge)]
     (if (get-in g [:node-map src :out-edges dest edge])
         (if-let
@@ -211,16 +222,26 @@
 (defn- transpose [{:keys [node-map allow-parallel? undirected? max-edge-id attrs reverse-edges]}]
   (let [new-node-map
         (into {} (for [[node {:keys [in-edges out-edges in-degree out-degree]}] node-map
-                       :let [new-in-edges (into {} (for [[k v] in-edges] [k (set (map swap-edge v))])),
-                             new-out-edges (into {} (for [[k v] out-edges] [k (set (map swap-edge v))]))]]
-                   [node (NodeInfo. new-in-edges new-out-edges in-degree out-degree)])),
-        
-        new-node-info (assoc node-info :in-edges out-edges :out-edges :in-edges),
+                       :let [new-in-edges (into {} (for [[k v] out-edges] [k (set (map swap-edge v))])),
+                             new-out-edges (into {} (for [[k v] in-edges] [k (set (map swap-edge v))]))]]
+                   [node (NodeInfo. new-out-edges new-in-edges in-degree out-degree)])),       
         
         new-attrs (into {} (for [[o attr] attrs]
-                             (if (edge? o) [(swap-edge o) attrs] [o attrs])))]
+                             (if (edge? o) [(swap-edge o) attr] [o attr])))]
     
     (Ubergraph. new-node-map allow-parallel? undirected? max-edge-id new-attrs reverse-edges)))
+
+(defn add-nodes [g & nodes]
+  (up/add-nodes* g nodes))
+
+(defn add-edges [g & edges]
+  (up/add-edges* g edges))
+
+(defn remove-nodes [g & nodes]
+  (up/remove-nodes* g nodes))
+
+(defn remove-edges [g & edges]
+  (up/remove-edges* g edges))
                 
 (defn build-graph
   "Right now, Ubergraph just supports building graphs using nodes and edge specifications
@@ -231,11 +252,13 @@ of the form [src dest], [src dest weight], or [src dest attribute-map]"
              ;; edge
              (and (vector? init) (#{2,3} (count init)))
              (if (number? (get init 2))
-               (add-edge g (init 0) (init 1) {:weight (init 2)})
-               (add-edge g (init 0) (init 1) (get init 2)))             
+               (add-edge g [(init 0) (init 1) {:weight (init 2)}])
+               (add-edge g [(init 0) (init 1) (get init 2)]))             
              ;; node
              :else (add-node g init)))]
     (reduce build g inits)))
+
+;; All of these graph options can also serve as weighted graphs, just initialize accordingly.
 
 (defn multigraph [& inits]
   (apply build-graph (->Ubergraph {} true true 0 {} {}) inits))
