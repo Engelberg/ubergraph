@@ -3,12 +3,28 @@
             [ubergraph.core :refer :all]
             [ubergraph.protocols :refer :all]))
 
+(defn vec-edges [g]
+  (for [e (edges g)] [(src e) (dest e)]))
+
 (deftest simple-graph-test
-  (let [g1 (graph [1 2] [1 3] [2 3] 4)]
+  (let [g1 (graph [1 2] [1 3] [2 3] 4)
+        g2 (graph {1 [2 3] 2 [3] 4 []})
+        g3 (graph g1)
+        g4 (graph g3 (digraph [5 6]) [7 8] 9)
+        g5 (graph)]
     (testing "Construction, nodes, edges"
       (are [expected got] (= expected got)
         #{1 2 3 4} (set (nodes g1))
-        #{[1 2] [1 3] [2 3]} (set (for [e (edges g1)] [(src e) (dest e)]))
+        #{[1 2] [1 3] [2 3]} (set (vec-edges g1))
+        (set (nodes g2)) (set (nodes g1))
+        (set (vec-edges g2)) (set (vec-edges g1))
+        (set (nodes g3)) (set (nodes g1))
+        (set (nodes g3)) (set (nodes g1))
+        #{1 2 3 4 5 6 7 8 9} (set (nodes g4))
+        #{[1 2][1 3][2 3]
+          [5 6] [7 8]} (set (vec-edges g4))
+        #{} (set (nodes g5))
+        #{} (set (edges g5))
         true (has-node? g1 4)
         true (has-edge? g1 1 2)
         false (has-node? g1 5)
@@ -24,16 +40,20 @@
     (testing "Add & remove"
       (are [expected got] (= expected got)
         #{1 2 3 4 5} (set (nodes (add-nodes g1 5)))
+        #{:a :b :c} (set (nodes (add-nodes g5 :a :b :c)))
+        #{{:id 1} {:id 2}} (set (nodes (add-nodes g5 {:id 1} {:id 2})))
+        #{[1 2]} (set (vec-edges (add-edges g5 [1 2])))
         #{1 2} (set (nodes (remove-nodes g1 3 4)))
-        #{[1 2]} (set (for [e (edges (remove-nodes g1 3 4))] [(src e) (dest e)]))
+        #{[1 2]} (set (vec-edges (remove-nodes g1 3 4)))
         #{1 2 3 4} (set (nodes (remove-edges g1 [1 2] [2 1] [1 3] [3 1])))
-        #{[2 3]} (set (for [e (edges (remove-edges g1 [1 2] [2 1] [1 3] [3 1]))] [(src e) (dest e)]))))))
-
-(defn vec-edges [g]
-  (for [e (edges g)] [(src e) (dest e)]))
+        #{[2 3]} (set (vec-edges (remove-edges g1 [1 2] [2 1] [1 3] [3 1])))))))
 
 (deftest simple-digraph-test
   (let [g1 (digraph [1 2] [1 3] [2 3] 4)
+        g2 (digraph {1 [2 3] 2 [3] 4 []})
+        g3 (digraph g1)
+        g4 (digraph g3 (graph [5 6]) [7 8] 9)
+        g5 (digraph)
         g6 (transpose g1)]
     (testing "Construction, nodes, edges"
       (are [expected got] (= expected got)
@@ -41,6 +61,14 @@
         #{1 2 3 4} (set (nodes g6))
         #{[1 2] [1 3] [2 3]} (set (vec-edges g1))
         #{[2 1] [3 1] [3 2]} (set (vec-edges g6))
+        (set (nodes g2)) (set (nodes g1))
+        (set (vec-edges g2)) (set (vec-edges g1))
+        (set (nodes g3)) (set (nodes g1))
+        (set (nodes g3)) (set (nodes g1))
+        #{1 2 3 4 5 6 7 8 9} (set (nodes g4))
+        #{[1 2] [1 3] [2 3] [5 6] [7 8]} (set (vec-edges g4))
+        #{} (set (nodes g5))
+        #{} (set (vec-edges g5))
         true (has-node? g1 4)
         true (has-edge? g1 1 2)
         false (has-node? g1 5)
@@ -64,17 +92,33 @@
     (testing "Add & remove"
       (are [expected got] (= expected got)
         #{1 2 3 4 5} (set (nodes (add-nodes g1 5)))
+        #{:a :b :c} (set (nodes (add-nodes g5 :a :b :c)))
+        #{{:id 1} {:id 2}} (set (nodes (add-nodes g5 {:id 1} {:id 2})))
+        #{[1 2]} (set (vec-edges (add-edges g5 [1 2])))
         #{1 2} (set (nodes (remove-nodes g1 3 4)))
         #{[1 2]} (set (vec-edges (remove-nodes g1 3 4)))
         #{1 2 3 4} (set (nodes (remove-edges g1 [1 2] [1 3])))
         #{[2 3]} (set (vec-edges (remove-edges g1 [1 2] [1 3])))))))
 
 (deftest simple-weighted-graph-test
-  (let [g1 (graph [1 2 77] [1 3 88] [2 3 99] 4)]
+  (let [g1 (graph [1 2 77] [1 3 88] [2 3 99] 4)
+        g2 (graph {1 {2 77 3 88} 2 {3 99} 4 []})
+        g3 (graph g1)
+        g4 (graph g3 (digraph [5 6 88]) [7 8] 9)
+        g5 (graph)]
     (testing "Construction, nodes, edges"
       (are [expected got] (= expected got)
         #{1 2 3 4} (set (nodes g1))
         #{[1 2] [1 3] [2 3]} (set (vec-edges g1))
+        (set (nodes g2)) (set (nodes g1))
+        (set (vec-edges g2)) (set (vec-edges g1))
+        (set (nodes g3)) (set (nodes g1))
+        (set (nodes g3)) (set (nodes g1))
+        #{1 2 3 4 5 6 7 8 9} (set (nodes g4))
+        #{[1 2] [1 3] [2 3]
+          [5 6] [7 8]} (set (vec-edges g4))
+        #{} (set (nodes g5))
+        #{} (set (edges g5))
         true (has-node? g1 4)
         true (has-edge? g1 1 2)
         false (has-node? g1 5)
@@ -90,16 +134,26 @@
     (testing "Add & remove"
       (are [expected got] (= expected got)
         #{1 2 3 4 5} (set (nodes (add-nodes g1 5)))
+        #{:a :b :c} (set (nodes (add-nodes g5 :a :b :c)))
+        #{{:id 1} {:id 2}} (set (nodes (add-nodes g5 {:id 1} {:id 2})))
+        #{[1 2]} (set (vec-edges (add-edges g5 [1 2])))
         #{1 2} (set (nodes (remove-nodes g1 3 4)))
         #{[1 2]} (set (vec-edges (remove-nodes g1 3 4)))
         #{1 2 3 4} (set (nodes (remove-edges g1 [1 2] [2 1] [1 3] [3 1])))
         #{[2 3]} (set (vec-edges (remove-edges g1 [1 2] [2 1] [1 3] [3 1])))))
     (testing "Weight"
       (are [expected got] (= expected got)
-        77 (weight g1 1 2)))))
+        77 (weight g1 1 2)
+        77 (weight g2 1 2)
+        77 (weight g3 1 2)
+        1 (weight g4 6 5) ;This is different from Loom's behavior
+        1 (weight g4 7 8)))))
 
 (deftest simple-weighted-digraph-test
   (let [g1 (digraph [1 2 77] [1 3 88] [2 3 99] 4)
+        g2 (digraph {1 {2 77 3 88} 2 {3 99} 4 []})
+        g3 (digraph g1)
+        g4 (digraph g3 (graph [5 6 88]) [7 8] 9)
         g5 (digraph)
         g6 (transpose g1)]
     (testing "Construction, nodes, edges"
@@ -108,8 +162,14 @@
         #{1 2 3 4} (set (nodes g6))
         #{[1 2] [1 3] [2 3]} (set (vec-edges g1))
         #{[2 1] [3 1] [3 2]} (set (vec-edges g6))
+        (set (nodes g2)) (set (nodes g1))
+        (set (vec-edges g2)) (set (vec-edges g1))
+        (set (nodes g3)) (set (nodes g1))
+        (set (nodes g3)) (set (nodes g1))
+        #{1 2 3 4 5 6 7 8 9} (set (nodes g4))
+        #{[1 2] [1 3] [2 3] [5 6] [7 8]} (set (vec-edges g4))
         #{} (set (nodes g5))
-        #{} (set (vec-edges g5))
+        #{} (set (edges g5))
         true (has-node? g1 4)
         true (has-edge? g1 1 2)
         false (has-node? g1 5)
@@ -143,5 +203,9 @@
     (testing "Weight"
       (are [expected got] (= expected got)
         77 (weight g1 1 2)
-        77 (weight g6 2 1)))))
+        77 (weight g2 1 2)
+        77 (weight g3 1 2)
+        77 (weight g6 2 1)
+        88 (weight g4 6 5)
+        1 (weight g4 7 8)))))
 

@@ -35,6 +35,12 @@
 ;    identify the edge.  It is recommended that edge-processing algorithms access the
 ;    source and destination nodes using the new Edge protocol (src and dest), rather
 ;    than assuming that an edge is a vector.
+; 
+; 5. The build-graph semantics are somewhat different from Loom's. Since Ubergraphs
+;    are capable of holding both directed and undirected edges, if you build a
+;    directed graph from an undirected graph, those edges are imported as undirected,
+;    and conversely, if you build an undirected graph from a directed graph, those edges
+;    are imported as directed.
 
 
 ; These are the functions that are too lengthy to define inline
@@ -57,7 +63,7 @@
   (has-node? [g node] (boolean (get-in g [:node-map node])))
   (has-edge? [g n1 n2] (boolean (seq (find-edges g n1 n2))))
   (successors [g] (partial up/successors g))
-  (successors [g node] (map up/dest (up/out-edges g node)))
+  (successors [g node] (distinct (map up/dest (up/out-edges g node))))
   (out-degree [g node] (get-in g [:node-map node :out-degree]))
   (out-edges [g] (partial up/out-edges g)) 
   (out-edges [g node] (apply concat (vals (get-in g [:node-map node :out-edges]))))
@@ -74,8 +80,8 @@
   ; Ubergraphs by default store weight in an attribute :weight
   ; Using an attribute allows us to modify the weight with the AttrGraph protocol
   (weight [g] (partial up/weight g))
-  (weight [g e] (get-in g [:attrs (edge-description->edge g e) :weight]))
-  (weight [g n1 n2] (get-in g [:attrs (get-edge g n1 n2) :weight]))
+  (weight [g e] (get-in g [:attrs (edge-description->edge g e) :weight] 1))
+  (weight [g n1 n2] (get-in g [:attrs (get-edge g n1 n2) :weight] 1))
   
   up/EditableGraph
   (add-nodes* [g nodes] (reduce add-node g nodes))
@@ -246,7 +252,7 @@
   (let [attributes (number->map attributes)]
     (cond
       (and (not (:allow-parallel? g)) (or (get-edge g src dest)
-                                          (get-edge g dest src)))
+                 (get-edge g dest src)))
       (let [new-attrs (merge (up/attrs g src dest) (up/attrs g dest src) attributes)]
         (-> g
           (remove-edges [src dest] [dest src])
@@ -350,17 +356,18 @@ as Loom's build-graph."
                  (cond
                    ;; ubergraph
                    (instance? Ubergraph init)
-                   (if (zero? (count (:node-map init)))
+                   (if (zero? (count (:node-map g)))
                      init
                      (let [new-g (up/add-nodes* g (up/nodes init)),
                            directed-edges (for [e (up/edges init)
-                                                :when (not (undirected-edge? init))]
-                                            [(up/src e) (up/dest e) (up/attrs g e)])
+                                                :when (not (undirected-edge? e))]
+                                            [(up/src e) (up/dest e) (up/attrs init e)])
                            undirected-edges (for [e (up/edges init),
-                                                  :when (undirected-edge? init)]
-                                              [(up/src e) (up/dest e) (up/attrs g e)])
-                           new-g (up/add-directed-edges* g directed-edges)
-                           new-g (up/add-undirected-edges* g undirected-edges)]
+                                                  :when (undirected-edge? e)]
+                                              [(up/src e) (up/dest e) (up/attrs init e)])
+                           _ (println directed-edges undirected-edges)
+                           new-g (up/add-directed-edges* new-g directed-edges)
+                           new-g (up/add-undirected-edges* new-g undirected-edges)]
                        new-g))
 
                    ;; Adjacency map
