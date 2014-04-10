@@ -4,7 +4,7 @@
             [ubergraph.protocols :refer :all]))
 
 (defn vec-edges [g]
-  (for [e (edges g)] [(src e) (dest e)]))
+  (for [e (edges g) :when (not (mirror-edge? e))] [(src e) (dest e)]))
 
 (deftest simple-graph-test
   (let [g1 (graph [1 2] [1 3] [2 3] 4)

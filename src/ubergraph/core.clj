@@ -42,8 +42,7 @@
 ; in the Ubergraph record.
 (declare transpose get-edge find-edges add-node add-edge remove-node remove-edge
          edge-description->edge resolve-node-or-edge 
-         force-add-directed-edge force-add-undirected-edge remove-edges
-         undirected-edge?)
+         force-add-directed-edge force-add-undirected-edge remove-edges)
 
 (defrecord Ubergraph [node-map allow-parallel? undirected? attrs]
   up/Graph
@@ -70,8 +69,8 @@
   
   up/WeightedGraph
   ; Ubergraphs by default store weight in an attribute :weight
-  ; Using an attribute allows us to modify the weight with the AttrGraph protocol
-  (weight [g] (partial up/weight g))
+ ; Using an attribute allows us to modify the weight with the AttrGraph protocol
+ (weight [g] (partial up/weight g))
   (weight [g e] (get-in g [:attrs (:id (edge-description->edge g e)) :weight] 1))
   (weight [g n1 n2] (get-in g [:attrs (:id (get-edge g n1 n2)) :weight] 1))
   
@@ -99,11 +98,11 @@
   
   up/UndirectedGraph
   (other-direction [g edge]
-    (when (undirected-edge? edge)
-      (let [edge (edge-description->edge g edge),
-            e (assoc edge :src (:dest edge) :dest (:src edge) :mirror? (not (:mirror? edge)))]
-        e)))
-        
+   (when (up/undirected-edge? edge)
+     (let [edge (edge-description->edge g edge),
+           e (assoc edge :src (:dest edge) :dest (:src edge) :mirror? (not (:mirror? edge)))]
+       e)))
+       
   up/QueryableGraph
   (find-edges [g edge-query] (find-edges g edge-query))
   (find-edge [g edge-query] (first (up/find-edges g edge-query)))
@@ -127,7 +126,11 @@
 (defrecord Edge [id src dest]
   up/Edge
   (src [edge] src)
-  (dest [edge] dest))
+  (dest [edge] dest)
+  up/MixedDirectionEdgeTests
+  (undirected-edge? [e] false)
+  (directed-edge? [e] true)
+  (mirror-edge? [e] false))
 
 ; An UndirectedEdge stores an additional field that signals whether this was the
 ; original direction that was added to the graph, or the "mirror" edge that was
@@ -138,14 +141,15 @@
 (defrecord UndirectedEdge [id src dest mirror?]
   up/Edge
   (src [edge] src)
-  (dest [edge] dest))
-
-(defn- get-edge [g n1 n2] (first (find-edges g n1 n2)))
+  (dest [edge] dest)
+  up/MixedDirectionEdgeTests
+  (undirected-edge? [e] true)
+  (directed-edge? [e] false)
+  (mirror-edge? [e] mirror?))
 
 (defn edge? [o] (or (instance? Edge o) (instance? UndirectedEdge o)))
-(defn undirected-edge? [o] (instance? UndirectedEdge o))
-(defn directed-edge? [o] (instance? Edge o))
-(defn mirror-edge? [o] (= (:mirror? o) true))
+
+(defn- get-edge [g n1 n2] (first (find-edges g n1 n2)))
 
 (defn- add-node
   [g node]
@@ -365,10 +369,10 @@ as Loom's build-graph."
                      init
                      (let [new-g (up/add-nodes* g (up/nodes init)),
                            directed-edges (for [e (up/edges init)
-                                                :when (not (undirected-edge? e))]
+                                                :when (not (up/undirected-edge? e))]
                                             [(up/src e) (up/dest e) (up/attrs init e)])
                            undirected-edges (for [e (up/edges init),
-                                                  :when (undirected-edge? e)]
+                                                  :when (up/undirected-edge? e)]
                                               [(up/src e) (up/dest e) (up/attrs init e)])
                            new-g (up/add-directed-edges* new-g directed-edges)
                            new-g (up/add-undirected-edges* new-g undirected-edges)]
@@ -407,11 +411,4 @@ as Loom's build-graph."
 
 (defn digraph [& inits]
   (apply build-graph (->Ubergraph {} false false {}) inits))
-
-
-
-
-
-
-
 

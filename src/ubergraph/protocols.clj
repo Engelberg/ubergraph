@@ -35,7 +35,7 @@
   (has-node? [g node] "Return true when node is in g")
   (has-edge? [g n1 n2] "Return true when an edge from n1 to n2 is in g")
   (successors [g] [g node] "Return direct successors of node, or (partial successors g)")
-  (out-degree [g node] "Return the number of direct successors of node")
+  (out-degree [g node] "Return the number of outgoing edges of node")
   ; new
   (out-edges [g] [g node] "Return outgoing edges of node, or (partial out-edges g)"  )
   )
@@ -47,7 +47,7 @@
 ; Still don't like the name Digraph for this, maybe Bigraph would be better
 (defprotocol Digraph
   (predecessors [g] [g node] "Return direct predecessors of node, or (partial predecessors g)")
-  (in-degree [g node] "Return the number direct predecessors to node")  
+  (in-degree [g node] "Return the number incoming edges to node")  
   (transpose [g] "Return a graph with all edges reversed")
   ; new
   (in-edges [g] [g node] "Return the incoming edges of node, or (partial in-edges g)")  
@@ -65,10 +65,16 @@
   (dest [edge] "Return the destination end of the edge"))
 
 ; Default implementation for vectors
-(extend-type clojure.lang.PersistentVector
+(extend-type clojure.lang.IPersistentVector
   Edge
   (src [edge] (get edge 0))
   (dest [edge] (get edge 1)))  
+
+; Default implementation for maps
+(extend-type clojure.lang.IPersistentMap
+  Edge
+  (src [edge] (:src edge))
+  (dest [edge] (:dest edge)))
 
 ; Modify the weight protocol function to take an edge
 ; (weight n1 n2) remains for backwards compatibility, but would be discouraged
@@ -120,6 +126,11 @@
 
 ; It would be nice to have a way to incorporate both undirected and directed edges
 ; into the same graph structure.
+
+(defprotocol MixedDirectionEdgeTests
+  (undirected-edge? [e] "Is e one 'direction' of an undirected edge?")
+  (directed-edge? [e] "Is e a directed edge?")
+  (mirror-edge? [e] "Is e the mirrored half of the undirected edge?"))
 
 (defprotocol MixedDirectionGraph
   (add-directed-edges* [g edge] "Adds directed edges regardless of the graph's undirected/directed default")
