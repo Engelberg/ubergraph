@@ -69,11 +69,11 @@
   
   up/WeightedGraph
   ; Ubergraphs by default store weight in an attribute :weight
- ; Using an attribute allows us to modify the weight with the AttrGraph protocol
- (weight [g] (partial up/weight g))
+  ; Using an attribute allows us to modify the weight with the AttrGraph protocol
+  (weight [g] (partial up/weight g))
   (weight [g e] (get-in g [:attrs (:id (edge-description->edge g e)) :weight] 1))
   (weight [g n1 n2] (get-in g [:attrs (:id (get-edge g n1 n2)) :weight] 1))
-  
+ 
   up/EditableGraph
   (add-nodes* [g nodes] (reduce add-node g nodes))
   ; edge definition should be [src dest] or [src dest weight] or [src dest attribute-map]
