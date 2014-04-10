@@ -31,7 +31,6 @@
 
 (defprotocol Graph
   (nodes [g] "Return a collection of the nodes in graph g")
-  ; Add ability to enumerate all edges between n1 and n2
   (edges [g] "Edges in g. May return each edge twice in an undirected graph")
   (has-node? [g node] "Return true when node is in g")
   (has-edge? [g n1 n2] "Return true when an edge from n1 to n2 is in g")
@@ -100,7 +99,7 @@
 ; two sides of an undirected edge, so we can keep attributes and weight in sync
 ; and add/remove or otherwise mark them in sync.
 (defprotocol UndirectedGraph
-  (reverse-edge [g edge] "Returns the other direction of this edge in graph g"))
+  (other-direction [g edge] "Returns the other direction of this edge in graph g"))
 
 ; We need a way to retrieve edges that is friendly to both regular and multi-graphs,
 ; but especially important for multi-graphs.

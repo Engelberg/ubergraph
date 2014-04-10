@@ -58,7 +58,7 @@
   (edges [g] (for [[node node-info] (:node-map g)
                    [dest edges] (:out-edges node-info),
                    edge edges
-                   :when (not (:duplicate edge))]
+                   :when (not (:mirror? edge))]
                edge))
   (has-node? [g node] (boolean (get-in g [:node-map node])))
   (has-edge? [g n1 n2] (boolean (seq (find-edges g n1 n2))))
@@ -132,7 +132,14 @@
   up/Edge
   (src [edge] src)
   (dest [edge] dest))
-(defrecord UndirectedEdge [id src dest duplicate]
+
+; An UndirectedEdge stores an additional field that signals whether this was the
+; original direction that was added to the graph, or the "mirror" edge that was
+; automatically added to go in the reverse direction.  This is a useful concept
+; because in some undirected graph algorithms, you only want to consider each
+; edge once, so the mirror? field lets you filter out these duplicate reverse edges.
+
+(defrecord UndirectedEdge [id src dest mirror?]
   up/Edge
   (src [edge] src)
   (dest [edge] dest))
