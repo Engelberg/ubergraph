@@ -15,28 +15,23 @@
 ; subtle implementation details that are different between the Ubergraph implementation
 ; and the Loom default implementations of the protocols.
 
-; 1. Ubergraph-based undirected graphs are designed to return only one direction of an
-; undirected edge in the sequence returned by (edges g).  That's because in undirected
-; algorithms, you usually want to consider each undirected edge only once.  You can
-; retrieve the other direction, if desired, using the new UndirectedGraph protocol.
-;
-; 2. Edge constructors (such as add-edges) support either [src dest], or [src dest weight]
+; 1. Edge constructors (such as add-edges) support either [src dest], or [src dest weight]
 ;    or [src dest attribute-map].
 ;   
-; 3. By default, edges added with the [src dest weight] constructor simply store the weight
+; 2. By default, edges added with the [src dest weight] constructor simply store the weight
 ;    as a :weight attribute.  This is simply an implementation detail which can be completely
 ;    ignored if you don't have any attributes and simply want to use the weight protocol
 ;    to retrieve the weight of an edge.  But by making it an attribute, it has the
 ;    added benefit that you can alter the weight of an edge using the attribute protocol.
 ;  
-; 4. The edges that are returned by edges are not simple vectors, they are a custom Edge
+; 3. The edges that are returned by edges are not simple vectors, they are a custom Edge
 ;    data structure.  All the functions that consume edges can take this custom Edge 
 ;    data structure, or simpler forms like [src dest] if that is enough to uniquely
 ;    identify the edge.  It is recommended that edge-processing algorithms access the
 ;    source and destination nodes using the new Edge protocol (src and dest), rather
 ;    than assuming that an edge is a vector.
 ; 
-; 5. The build-graph semantics are somewhat different from Loom's. Since Ubergraphs
+; 4. The build-graph semantics are somewhat different from Loom's. Since Ubergraphs
 ;    are capable of holding both directed and undirected edges, if you build a
 ;    directed graph from an undirected graph, those edges are imported as undirected,
 ;    and conversely, if you build an undirected graph from a directed graph, those edges
@@ -47,18 +42,15 @@
 ; in the Ubergraph record.
 (declare transpose get-edge find-edges add-node add-edge remove-node remove-edge
          edge-description->edge resolve-node-or-edge 
-         force-add-directed-edge force-add-undirected-edge remove-edges)
+         force-add-directed-edge force-add-undirected-edge remove-edges
+         undirected-edge?)
 
-(defrecord Ubergraph [node-map allow-parallel? undirected? attrs reverse-edges]
+(defrecord Ubergraph [node-map allow-parallel? undirected? attrs]
   up/Graph
   (nodes [g] (keys (:node-map g)))
-  ; I've chosen to implement the edges protocol for Ubergraph such that
-  ; undirected edges only appear once in the sequence of edges (one of the two directions,
-  ; not both).
   (edges [g] (for [[node node-info] (:node-map g)
                    [dest edges] (:out-edges node-info),
-                   edge edges
-                   :when (not (:mirror? edge))]
+                   edge edges]
                edge))
   (has-node? [g node] (boolean (get-in g [:node-map node])))
   (has-edge? [g n1 n2] (boolean (seq (find-edges g n1 n2))))
@@ -80,8 +72,8 @@
   ; Ubergraphs by default store weight in an attribute :weight
   ; Using an attribute allows us to modify the weight with the AttrGraph protocol
   (weight [g] (partial up/weight g))
-  (weight [g e] (get-in g [:attrs (edge-description->edge g e) :weight] 1))
-  (weight [g n1 n2] (get-in g [:attrs (get-edge g n1 n2) :weight] 1))
+  (weight [g e] (get-in g [:attrs (:id (edge-description->edge g e)) :weight] 1))
+  (weight [g n1 n2] (get-in g [:attrs (:id (get-edge g n1 n2)) :weight] 1))
   
   up/EditableGraph
   (add-nodes* [g nodes] (reduce add-node g nodes))
@@ -89,7 +81,7 @@
   (add-edges* [g edge-definitions] (reduce (fn [g edge] (add-edge g edge)) g edge-definitions)) 
   (remove-nodes* [g nodes] (reduce remove-node g nodes))
   (remove-edges* [g edges] (reduce remove-edge g edges))
-  (remove-all [g] (Ubergraph. {} allow-parallel? undirected? {} {}))
+  (remove-all [g] (Ubergraph. {} allow-parallel? undirected? {}))
   
   up/AttrGraph
   (add-attr [g node-or-edge k v] 
@@ -106,8 +98,12 @@
   (attrs [g n1 n2] (up/attrs g (get-edge g n1 n2)))
   
   up/UndirectedGraph
-  (reverse-edge [g edge] (get-in g [:reverse-edges (edge-description->edge g edge)]))
-  
+  (other-direction [g edge]
+    (when (undirected-edge? edge)
+      (let [edge (edge-description->edge g edge),
+            e (assoc edge :src (:dest edge) :dest (:src edge) :mirror? (not (:mirror? edge)))]
+        e)))
+        
   up/QueryableGraph
   (find-edges [g edge-query] (find-edges g edge-query))
   (find-edge [g edge-query] (first (up/find-edges g edge-query)))
@@ -148,6 +144,8 @@
 
 (defn edge? [o] (or (instance? Edge o) (instance? UndirectedEdge o)))
 (defn undirected-edge? [o] (instance? UndirectedEdge o))
+(defn directed-edge? [o] (instance? Edge o))
+(defn mirror-edge? [o] (= (:mirror? o) true))
 
 (defn- add-node
   [g node]
@@ -191,7 +189,7 @@
         edge-id (java.util.UUID/randomUUID)
         edge (->Edge edge-id src dest)
         new-attrs (if attributes 
-                    (assoc (:attrs g) edge attributes)
+                    (assoc (:attrs g) edge-id attributes)
                     (:attrs g))
         node-map (:node-map g)
         node-map-src (get node-map src)
@@ -203,16 +201,16 @@
                             (update-in [:in-edges src] fconj edge)
                             (update-in [:in-degree] finc))
         new-node-map (assoc node-map src new-node-map-src dest new-node-map-dest)]
-    (Ubergraph. new-node-map (:allow-parallel? g) (:undirected? g) new-attrs (:reverse-edges g))))
+    (Ubergraph. new-node-map (:allow-parallel? g) (:undirected? g) new-attrs)))
 
 (defn- add-undirected-edge [g src dest attributes]
   (let [g (-> g (add-node src) (add-node dest))
         forward-edge-id (java.util.UUID/randomUUID),
-        backward-edge-id (java.util.UUID/randomUUID),
+        backward-edge-id forward-edge-id,
         forward-edge (->UndirectedEdge forward-edge-id src dest false),
         backward-edge (->UndirectedEdge backward-edge-id dest src true)
         new-attrs (if attributes 
-                    (assoc (:attrs g) forward-edge attributes backward-edge attributes)
+                    (assoc (:attrs g) forward-edge-id attributes)
                     (:attrs g))
         node-map (:node-map g)
         node-map-src (get node-map src)
@@ -227,9 +225,8 @@
                             (update-in [:in-edges src] fconj forward-edge)
                             (update-in [:in-degree] finc)
                             (update-in [:out-degree] finc))
-        new-node-map (assoc node-map src new-node-map-src dest new-node-map-dest)
-        new-reverse-edges (assoc (:reverse-edges g) forward-edge backward-edge backward-edge forward-edge)]
-    (Ubergraph. new-node-map (:allow-parallel? g) (:undirected? g) new-attrs new-reverse-edges)))
+        new-node-map (assoc node-map src new-node-map-src dest new-node-map-dest)]
+    (Ubergraph. new-node-map (:allow-parallel? g) (:undirected? g) new-attrs)))
 
 (defn- number->map [n]
   (if (number? n) {:weight n} n))
@@ -290,12 +287,13 @@ an edge object."
 
 (defn- resolve-node-or-edge
   "Similar to edge-description->edge in that it converts edge descriptions to edge objects,
-but this function also passes nodes through unchanged"
+but this function also passes nodes through unchanged, and extracts the edge id if
+it is an edge."
   [g node-or-edge]
   (cond (up/has-node? g node-or-edge)
         node-or-edge
         :else
-        (try (edge-description->edge g node-or-edge)
+        (try (:id (edge-description->edge g node-or-edge))
           (catch IllegalArgumentException e
             (throw (IllegalArgumentException. (str "Invalid node or edge description: " node-or-edge)))))))
 
@@ -339,7 +337,7 @@ but this function also passes nodes through unchanged"
         new-attrs (into {} (for [[o attr] attrs]
                              (if (edge? o) [(swap-edge o) attr] [o attr])))]
     
-    (Ubergraph. new-node-map allow-parallel? undirected? new-attrs reverse-edges)))
+    (Ubergraph. new-node-map allow-parallel? undirected? new-attrs)))
 
 (defn add-nodes [g & nodes]
   (up/add-nodes* g nodes))
@@ -399,16 +397,16 @@ as Loom's build-graph."
 ;; All of these graph options can also serve as weighted graphs, just initialize accordingly.
 
 (defn multigraph [& inits]
-  (apply build-graph (->Ubergraph {} true true {} {}) inits))
+  (apply build-graph (->Ubergraph {} true true {}) inits))
 
 (defn multidigraph [& inits]
-  (apply build-graph (->Ubergraph {} true false {} {}) inits))
+  (apply build-graph (->Ubergraph {} true false {}) inits))
 
 (defn graph [& inits]
-  (apply build-graph (->Ubergraph {} false true {} {}) inits))
+  (apply build-graph (->Ubergraph {} false true {}) inits))
 
 (defn digraph [& inits]
-  (apply build-graph (->Ubergraph {} false false {} {}) inits))
+  (apply build-graph (->Ubergraph {} false false {}) inits))
 
 
 
