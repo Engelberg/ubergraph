@@ -181,9 +181,11 @@
             dest (up/in-edges g dest)
             :else (partial find-edges g))
           attributes (dissoc attributes :src :dest)]
-      (for [edge edges
-            :when (submap? attributes (get-in g [:attrs edge]))]
-        edge))))
+      (if (pos? (count attributes))
+        (for [edge edges
+              :when (submap? attributes (get-in g [:attrs edge]))]
+          edge)
+        edges))))
 
 (defn- find-edge [& args]
   (first (apply find-edges args)))
