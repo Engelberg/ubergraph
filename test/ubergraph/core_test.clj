@@ -1,7 +1,6 @@
 (ns ubergraph.core-test
   (:require [clojure.test :refer :all]
-            [ubergraph.core :refer :all]
-            [ubergraph.protocols :refer :all]))
+            [ubergraph.core :refer :all]))
 
 (defn vec-edges [g]
   (for [e (edges g) :when (not (mirror-edge? e))] [(src e) (dest e)]))

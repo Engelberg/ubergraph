@@ -1,5 +1,65 @@
 (ns ubergraph.core
-  (:require [ubergraph.protocols :as up]))
+  (:require [potemkin :refer [import-vars]]
+            [loom.graph :as lg] 
+            [loom.attr :as la]
+            [ubergraph.protocols :as up]
+            ))
+
+(import-vars 
+  [loom.graph
+   ; Graph protocol
+   nodes
+   edges
+   has-node?
+   has-edge?
+   successors
+   out-degree
+   out-edges
+   ; Digraph protocol
+   predecessors
+   in-degree
+   in-edges
+   transpose
+   ; WeightedGraph protocol
+   weight
+   ; EditableGraph protocol
+   add-nodes*
+   add-edges*
+   remove-nodes*
+   remove-edges*
+   remove-all
+   ; Edge protocol
+   src
+   dest
+   ; Helper functions
+   add-nodes
+   add-edges
+   remove-nodes   
+   remove-edges]
+  
+  [loom.attr
+   ; AttrGraph protocol
+   add-attr
+   remove-attr
+   attr
+   attrs]
+  
+  [ubergraph.protocols
+   ; UndirectedGraph protocol
+   other-direction
+   ; QueryableGraph protocol
+   find-edges
+   find-edge
+   ; MixedDirectionEdgeTests protocol
+   undirected-edge?
+   directed-edge?
+   mirror-edge?
+   ; MixedDirectionGraph protocol
+   add-directed-edges*
+   add-undirected-edges*]
+   )
+   
+  
 
 ; This namespace provides a concrete implementation of ubergraph.protocols, which is
 ; a conservative extension to Loom's protocols.
@@ -40,12 +100,12 @@
 
 ; These are the functions that are too lengthy to define inline
 ; in the Ubergraph record.
-(declare transpose get-edge find-edges add-node add-edge remove-node remove-edge
+(declare transpose-impl get-edge find-edges-impl find-edge-impl add-node add-edge remove-node remove-edge
          edge-description->edge resolve-node-or-edge 
          force-add-directed-edge force-add-undirected-edge remove-edges)
 
 (defrecord Ubergraph [node-map allow-parallel? undirected? attrs]
-  up/Graph
+  lg/Graph
   (nodes [g] (keys (:node-map g)))
   (edges [g] (for [[node node-info] (:node-map g)
                    [dest edges] (:out-edges node-info),
@@ -53,28 +113,28 @@
                edge))
   (has-node? [g node] (boolean (get-in g [:node-map node])))
   (has-edge? [g n1 n2] (boolean (seq (find-edges g n1 n2))))
-  (successors [g] (partial up/successors g))
-  (successors [g node] (distinct (map up/dest (up/out-edges g node))))
+  (successors [g] (partial successors g))
+  (successors [g node] (distinct (map dest (out-edges g node))))
   (out-degree [g node] (get-in g [:node-map node :out-degree]))
-  (out-edges [g] (partial up/out-edges g)) 
+  ;(out-edges [g] (partial out-edges g)) 
   (out-edges [g node] (apply concat (vals (get-in g [:node-map node :out-edges]))))
   
-  up/Digraph
-  (predecessors [g] (partial up/predecessors g))
-  (predecessors [g node] (map up/src (up/in-edges g node)))
+  lg/Digraph
+  (predecessors [g] (partial predecessors g))
+  (predecessors [g node] (map src (in-edges g node)))
   (in-degree [g node] (get-in g [:node-map node :in-degree]))
-  (in-edges [g] (partial up/in-edges g))
+  ;(in-edges [g] (partial in-edges g))
   (in-edges [g node] (apply concat (vals (get-in g [:node-map node :in-edges]))))
-  (transpose [g] (transpose g))
+  (transpose [g] (transpose-impl g))
   
-  up/WeightedGraph
+  lg/WeightedGraph
   ; Ubergraphs by default store weight in an attribute :weight
   ; Using an attribute allows us to modify the weight with the AttrGraph protocol
-  (weight [g] (partial up/weight g))
+  (weight [g] (partial weight g))
   (weight [g e] (get-in g [:attrs (:id (edge-description->edge g e)) :weight] 1))
   (weight [g n1 n2] (get-in g [:attrs (:id (get-edge g n1 n2)) :weight] 1))
  
-  up/EditableGraph
+  lg/EditableGraph
   (add-nodes* [g nodes] (reduce add-node g nodes))
   ; edge definition should be [src dest] or [src dest weight] or [src dest attribute-map]
   (add-edges* [g edge-definitions] (reduce (fn [g edge] (add-edge g edge)) g edge-definitions)) 
@@ -82,30 +142,32 @@
   (remove-edges* [g edges] (reduce remove-edge g edges))
   (remove-all [g] (Ubergraph. {} allow-parallel? undirected? {}))
   
-  up/AttrGraph
+  la/AttrGraph
   (add-attr [g node-or-edge k v] 
     (assoc-in g [:attrs (resolve-node-or-edge g node-or-edge) k] v))
-  (add-attr [g n1 n2 k v] (up/add-attr g (get-edge g n1 n2) k v))
+  (add-attr [g n1 n2 k v] (add-attr g (get-edge g n1 n2) k v))
   (remove-attr [g node-or-edge k] 
     (update-in g [:attrs (resolve-node-or-edge g node-or-edge)] dissoc k))
-  (remove-attr [g n1 n2 k] (up/remove-attr g (get-edge g n1 n2) k))
+  (remove-attr [g n1 n2 k] (remove-attr g (get-edge g n1 n2) k))
   (attr [g node-or-edge k] 
     (get-in g [:attrs (resolve-node-or-edge g node-or-edge) k]))
-  (attr [g n1 n2 k] (up/attr g (get-edge g n1 n2) k))
+  (attr [g n1 n2 k] (attr g (get-edge g n1 n2) k))
   (attrs [g node-or-edge] 
     (get-in g [:attrs (resolve-node-or-edge g node-or-edge)] {}))
-  (attrs [g n1 n2] (up/attrs g (get-edge g n1 n2)))
+  (attrs [g n1 n2] (attrs g (get-edge g n1 n2)))
   
   up/UndirectedGraph
   (other-direction [g edge]
-   (when (up/undirected-edge? edge)
+   (when (undirected-edge? edge)
      (let [edge (edge-description->edge g edge),
            e (assoc edge :src (:dest edge) :dest (:src edge) :mirror? (not (:mirror? edge)))]
        e)))
        
   up/QueryableGraph
-  (find-edges [g edge-query] (find-edges g edge-query))
-  (find-edge [g edge-query] (first (up/find-edges g edge-query)))
+  (find-edges [g edge-query] (find-edges-impl g edge-query))
+  (find-edges [g src dest] (find-edges-impl g src dest))
+  (find-edge [g edge-query] (find-edge-impl g edge-query))
+  (find-edge [g src dest] (find-edge-impl g src dest))
   
   up/MixedDirectionGraph
   (add-directed-edges* [g edge-definitions] (reduce (fn [g edge] (force-add-directed-edge g edge))
@@ -124,7 +186,7 @@
 
 (defrecord NodeInfo [out-edges in-edges out-degree in-degree])
 (defrecord Edge [id src dest]
-  up/Edge
+  lg/Edge
   (src [edge] src)
   (dest [edge] dest)
   up/MixedDirectionEdgeTests
@@ -139,7 +201,7 @@
 ; edge once, so the mirror? field lets you filter out these duplicate reverse edges.
 
 (defrecord UndirectedEdge [id src dest mirror?]
-  up/Edge
+  lg/Edge
   (src [edge] src)
   (dest [edge] dest)
   up/MixedDirectionEdgeTests
@@ -160,25 +222,25 @@
 (defn- remove-node
   [g node]
   (-> g
-    (up/remove-edges* (up/out-edges g node))
-    (up/remove-edges* (up/in-edges g node))    
+    (remove-edges* (out-edges g node))
+    (remove-edges* (in-edges g node))    
     (update-in [:node-map] dissoc node)))
 
-(def fconj (fnil conj #{}))
-(def finc (fnil inc 0))
+(def ^:private fconj (fnil conj #{}))
+(def ^:private finc (fnil inc 0))
 
 (defn- submap? [m1 m2]
   (every? identity (for [[k v] m1] (= (m2 k) v))))
 
-(defn- find-edges 
+(defn- find-edges-impl 
   ([g src dest]
     (get-in g [:node-map src :out-edges dest]))
   ([g {src :src dest :dest :as attributes}]
     (let [edges
           (cond 
             (and src dest) (get-in g [:node-map src :out-edges dest])
-            src (up/out-edges g src)
-            dest (up/in-edges g dest)
+            src (out-edges g src)
+            dest (in-edges g dest)
             :else (partial find-edges g))
           attributes (dissoc attributes :src :dest)]
       (if (pos? (count attributes))
@@ -187,8 +249,8 @@
           edge)
         edges))))
 
-(defn- find-edge [& args]
-  (first (apply find-edges args)))
+(defn- find-edge-impl [& args]
+  (first (apply find-edges-impl args)))
 
 (defn- add-directed-edge [g src dest attributes]
   (let [g (-> g (add-node src) (add-node dest))
@@ -263,7 +325,7 @@
     (cond
       (and (not (:allow-parallel? g)) (or (get-edge g src dest)
                  (get-edge g dest src)))
-      (let [new-attrs (merge (up/attrs g src dest) (up/attrs g dest src) attributes)]
+      (let [new-attrs (merge (attrs g src dest) (attrs g dest src) attributes)]
         (-> g
           (remove-edges [src dest] [dest src])
           (add-undirected-edge src dest attributes)))
@@ -296,7 +358,7 @@ an edge object."
 but this function also passes nodes through unchanged, and extracts the edge id if
 it is an edge."
   [g node-or-edge]
-  (cond (up/has-node? g node-or-edge)
+  (cond (has-node? g node-or-edge)
         node-or-edge
         :else
         (try (:id (edge-description->edge g node-or-edge))
@@ -333,7 +395,7 @@ it is an edge."
 (defn- swap-edge [edge]
   (assoc edge :src (:dest edge) :dest (:src edge)))
 
-(defn- transpose [{:keys [node-map allow-parallel? undirected? attrs reverse-edges]}]
+(defn- transpose-impl [{:keys [node-map allow-parallel? undirected? attrs reverse-edges]}]
   (let [new-node-map
         (into {} (for [[node {:keys [in-edges out-edges in-degree out-degree]}] node-map
                        :let [new-in-edges (into {} (for [[k v] out-edges] [k (set (map swap-edge v))])),
@@ -345,17 +407,11 @@ it is an edge."
     
     (Ubergraph. new-node-map allow-parallel? undirected? new-attrs)))
 
-(defn add-nodes [g & nodes]
-  (up/add-nodes* g nodes))
+(defn add-directed-edges [g & edges]
+  (add-directed-edges* g edges))
 
-(defn add-edges [g & edges]
-  (up/add-edges* g edges))
-
-(defn remove-nodes [g & nodes]
-  (up/remove-nodes* g nodes))
-
-(defn remove-edges [g & edges]
-  (up/remove-edges* g edges))
+(defn add-undirected-edges [g & edges]
+  (add-undirected-edges* g edges))
 
 (defn build-graph
   "Builds graphs using nodes and edge descriptions of the form [src dest], 
@@ -369,15 +425,15 @@ as Loom's build-graph."
                    (instance? Ubergraph init)
                    (if (zero? (count (:node-map g)))
                      init
-                     (let [new-g (up/add-nodes* g (up/nodes init)),
-                           directed-edges (for [e (up/edges init)
-                                                :when (not (up/undirected-edge? e))]
-                                            [(up/src e) (up/dest e) (up/attrs init e)])
-                           undirected-edges (for [e (up/edges init),
-                                                  :when (up/undirected-edge? e)]
-                                              [(up/src e) (up/dest e) (up/attrs init e)])
-                           new-g (up/add-directed-edges* new-g directed-edges)
-                           new-g (up/add-undirected-edges* new-g undirected-edges)]
+                     (let [new-g (add-nodes* g (nodes init)),
+                           directed-edges (for [e (edges init)
+                                                :when (not (undirected-edge? e))]
+                                            [(src e) (dest e) (attrs init e)])
+                           undirected-edges (for [e (edges init),
+                                                  :when (undirected-edge? e)]
+                                              [(src e) (dest e) (attrs init e)])
+                           new-g (add-directed-edges* new-g directed-edges)
+                           new-g (add-undirected-edges* new-g undirected-edges)]
                        new-g))
 
                    ;; Adjacency map
@@ -390,8 +446,8 @@ as Loom's build-graph."
                                     nbr nbrs]
                                 [n nbr]))]
                      (-> g
-                       (up/add-nodes* (keys init))
-                       (up/add-edges* es)))
+                       (add-nodes* (keys init))
+                       (add-edges* es)))
                    
                    ;; edge
                    (and (vector? init) (#{2,3} (count init)))
