@@ -19,7 +19,7 @@ Ubergraph is a great choice for people who:
 
 Add the following line to your leiningen dependencies:
 
-	[ubergraph "0.0.1"]
+	[ubergraph "0.1.0"]
 
 Require ubergraph in your namespace header:
 
@@ -68,6 +68,8 @@ Establish an ubergraph.alg namespace where the community can help "curate" Loom'
 ### Step 5
 
 Ideally, I'm hoping that once all of Loom's algorithms have been successfully converted to work with multi-edge graphs, Ubergraph can be merged into Loom as the default multi-edge graph implementation.  If that turns out not to be practical, ubergraph will continue to exist independently as a kind of "Loom+", a graph data structure that works with all of Loom's protocols and algorithms, as well as supporting additional functionality.
+
+
 
 ## License
 

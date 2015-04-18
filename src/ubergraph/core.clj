@@ -194,6 +194,8 @@
   (directed-edge? [e] true)
   (mirror-edge? [e] false))
 
+(alter-meta! #'->Edge assoc :no-doc true)
+
 ; An UndirectedEdge stores an additional field that signals whether this was the
 ; original direction that was added to the graph, or the "mirror" edge that was
 ; automatically added to go in the reverse direction.  This is a useful concept
