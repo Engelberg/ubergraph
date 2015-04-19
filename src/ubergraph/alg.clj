@@ -1,10 +1,10 @@
 (ns ubergraph.alg
   (:require [ubergraph.core :as uber])
-  (:import java.util.PriorityQueue java.util.HashMap))
+  (:import java.util.PriorityQueue java.util.HashMap java.util.LinkedList java.util.HashSet))
 
-;; Shortest path
+;; Various searches for shortest paths
 ;; For speed, on Java, use mutable queues and hash maps
-;; Consider using priority maps for better portability to Clojurescript
+;; Consider using Clojure data structures for better portability to Clojurescript
 
 (defn- find-path
   ([to backlinks] (find-path to backlinks ()))
@@ -13,77 +13,100 @@
       (recur (uber/src prev-edge) backlinks (cons prev-edge path))
       path)))
 
-;(defn- bf-path [g to ^java.util.LinkedList queue ^HashMap total-distances ^HashMap backlinks]
-;  (loop []
-;    (if-let [node (.poll queue)]
-;      (if (= node to)
-;        (find-path to backlinks)
-;        (do (when (<= total-cost (.get total-costs node))
-;              (doseq [edge (uber/out-edges g node)]
-;                (let [dst (uber/dest edge),
-;                      cost (weight-fn edge),
-;                      new-cost (+ total-cost cost)
-;                      previous-cost (.get total-costs dst)]
-;                  (when (not (and previous-cost (< previous-cost new-cost)))
-;                    (.add queue [new-cost dst])
-;                    (.put total-costs dst new-cost)
-;                    (.put backlinks dst edge)))))
-;          (recur)))  
-;      nil)))
-
-(defn- shortest-path-with-weights-helper [g to ^PriorityQueue queue ^HashMap total-costs ^HashMap backlinks 
-                                          weight-fn]
+(defn- least-edges-path-helper [g goal? ^LinkedList queue ^HashMap backlinks]
   (loop []
-    (if-let [[total-cost node] (.poll queue)]
-      (if (= node to)
-        (find-path to backlinks)
-        (do (when (< total-cost (.get total-costs node))
-              (doseq [edge (uber/out-edges g node)]
-                (let [dst (uber/dest edge),
-                      cost (weight-fn edge),
-                      new-cost (+ total-cost cost)
-                      previous-cost (.get total-costs dst)]
-                  (when (not (and previous-cost (< previous-cost new-cost)))
-                    (.add queue [new-cost dst])
-                    (.put total-costs dst new-cost)
-                    (.put backlinks dst edge)))))
+    (if-let [node (.poll queue)]
+      (if (goal? node)
+        (find-path node backlinks)
+        (do (doseq [edge (uber/out-edges g node)]
+              (let [dst (uber/dest edge)]
+                (when-not (.get backlinks dst)
+                  (.add queue dst)
+                  (.put backlinks dst edge))))
+          (recur)))
+      nil)))
+
+(defn least-edges-path
+  "Takes a graph g, a collection of starting nodes, and a goal? predicate. Returns
+a path that gets you from one of the starting nodes to a node that satisfies the goal? predicate 
+using the fewest possible edges."
+  [g starting-nodes goal?]
+  (let [queue (LinkedList.),
+        backlinks (HashMap.)]
+    (doseq [node starting-nodes]
+      (.add queue node)
+      (.put backlinks node nil))
+    (least-edges-path g goal? queue backlinks)))
+
+(defn- least-cost-path-helper [g goal? ^PriorityQueue queue ^HashMap least-costs 
+                               ^HashMap backlinks cost-fn]
+  (loop []
+    (if-let [[cost-from-start-to-node node] (.poll queue)]
+      (cond 
+        (goal? node) (find-path node backlinks)
+        (> cost-from-start-to-node (.get least-costs node)) (recur)
+        :else
+        (do (doseq [edge (uber/out-edges g node)]
+              (let [dst (uber/dest edge),
+                    cost-from-node-to-dst (cost-fn edge),
+                    cost-from-start-to-dst (+ cost-from-start-to-node 
+                                              cost-from-node-to-dst)
+                    least-cost-found-so-far-from-start-to-dst (.get least-costs dst)]
+                (when (or (not least-cost-found-so-far-from-start-to-dst) 
+                          (< cost-from-start-to-dst least-cost-found-so-far-from-start-to-dst))
+                  (.add queue [cost-from-start-to-dst dst])
+                  (.put least-costs dst cost-from-start-to-dst)
+                  (.put backlinks dst edge))))
           (recur)))  
       nil)))
 
-(defn shortest-path-with-weights [g from to weight-fn]
-  (let [cost-map (HashMap.),
-        backlink-map (HashMap.)
-        queue (PriorityQueue.)]
-    (.put cost-map from 0)
-    (.put backlink-map from nil)
-    (.add queue [0 from])
-    (shortest-path-with-weights-helper g to queue cost-map backlink-map weight-fn)))
+(defn least-cost-path
+  "Takes a graph g, a collection of starting nodes, a goal? predicate, and optionally a cost function
+(defaults to weight). Returns a list of edges that form a path with the least cost 
+from one of the starting nodes to a node that satisfies the goal? predicate."  
+  ([g starting-nodes goal?]
+    (least-cost-path g starting-nodes goal? uber/weight))
+  ([g starting-nodes goal? cost-fn]
+    (let [least-costs (HashMap.),
+        backlinks (HashMap.)
+          queue (PriorityQueue.)]
+      (doseq [node starting-nodes]
+        (.put least-costs node 0)
+        (.put backlinks node nil)
+        (.add queue [0 node]))
+      (least-cost-path-helper g goal? queue least-costs backlinks cost-fn))))
 
-(defn- shortest-path-with-heuristic-helper [g to ^PriorityQueue queue ^HashMap cost-map ^HashMap backlinks 
-                             weight-fn heuristic-fn]
+(defn- least-cost-path-with-heuristic-helper
+  "AKA A* search"
+  [g goal? ^PriorityQueue queue ^HashMap least-costs ^HashMap backlinks cost-fn heuristic-fn]
   (loop []
-    (if-let [[estimated-total-cost [cost-from-start node]] (.poll queue)]
-      (if (= node to)
-        (find-path to backlinks)
-        (do (when (< cost-from-start (.get cost-map node)))
-              (doseq [edge (uber/out-edges g node)]
-                (let [dst (uber/dest edge),
-                      edge-cost (weight-fn edge),
-                      new-cost (+ cost-from-start edge-cost)
-                      previous-cost-to-dst (.get cost-map dst)]
-                  (when (not (and previous-cost-to-dst (< previous-cost-to-dst new-cost)))
-                    (.add queue [(+ new-cost (heuristic-fn dst to)) [new-cost dst]])
-                    (.put cost-map dst new-cost)
-                    (.put backlinks dst edge))))
-              (recur)))  
+    (if-let [[estimated-total-cost-through-node [cost-from-start-to-node node]] (.poll queue)]
+      (cond
+        (goal? node) (find-path node backlinks)
+        (> cost-from-start-to-node (.get least-costs node)) (recur)
+        :else
+        (do (doseq [edge (uber/out-edges g node)]
+              (let [dst (uber/dest edge),
+                    cost-from-node-to-dst (cost-fn edge),
+                    cost-from-start-to-dst (+ cost-from-start-to-node
+                                              cost-from-node-to-dst)
+                    least-cost-found-so-far-from-start-to-dst (.get least-costs dst)]
+                (when (or (not least-cost-found-so-far-from-start-to-dst) 
+                          (< cost-from-start-to-dst least-cost-found-so-far-from-start-to-dst))
+                  (.add queue [(+ cost-from-start-to-dst (heuristic-fn dst))
+                               [cost-from-start-to-dst dst]])
+                  (.put least-costs dst cost-from-start-to-dst)
+                  (.put backlinks dst edge))))
+          (recur)))  
       nil)))
 
-(defn shortest-path-with-heuristic [g from to weight-fn heuristic-fn]
-  (let [cost-map (HashMap.),
-        backlink-map (HashMap.)
+(defn least-cost-path-with-heuristic [g starting-nodes goal? cost-fn heuristic-fn]
+  (let [least-costs (HashMap.),
+        backlinks (HashMap.)
         queue (PriorityQueue.)]
-    (.put cost-map from 0)
-    (.put backlink-map from nil)
-    (.add queue [(heuristic-fn from to) [0 from]])
-    (shortest-path-with-heuristic-helper g to queue cost-map backlink-map weight-fn heuristic-fn)))
+    (doseq [node starting-nodes]
+      (.put least-costs node 0)
+      (.put backlinks node nil)
+      (.add queue [(heuristic-fn node) [0 node]]))
+    (least-cost-path-with-heuristic-helper g goal? queue least-costs cost-fn heuristic-fn)))
 
