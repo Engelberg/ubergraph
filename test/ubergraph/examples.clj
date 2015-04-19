@@ -17,7 +17,7 @@
 
 
 (deftest test-equal-graphs?
-  (are [x y] (uber/equal-graphs? x y)
+  (are [x y] (= x y)
        (uber/graph [:a :b] [:a :c] [:b :d]) (uber/graph [:a :b] [:a :c] [:b :d])
        (uber/graph [:a :b 2] [:a :c 3] [:b :d 4]) (uber/graph [:a :b 2] [:a :c 3] [:b :d 4])
        

@@ -588,13 +588,18 @@ Undirected edges are counted only once."
 
 (defn equal-graphs? [^Ubergraph g1 ^Ubergraph g2]
   (or (.equals g1 g2)
-      (and (= (nodes g1) (nodes g2))
-           (= (count (:attrs g1)) (count (:attrs g2)))
-           (= (count-edges g1) (count-edges g2))
-           (every? identity
-                   (for [node1 (nodes g1),
-                         node2 (successors g1 node1)]
-                     (equal-edges? g1 g2 node1 node2))))))
+      (and
+        (or
+          (= @(:cached-hash g1) -1)
+          (= @(:cached-hash g2) -1)
+          (= @(:cached-hash g1) @(:cached-hash g2)))            
+        (= (count (:attrs g1)) (count (:attrs g2)))
+        (= (nodes g1) (nodes g2))
+        (= (count-edges g1) (count-edges g2))
+        (every? identity
+                (for [node1 (nodes g1),
+                      node2 (successors g1 node1)]
+                  (equal-edges? g1 g2 node1 node2))))))
              
 (defn hash-graph [g]
   (let [h (:cached-hash g)
