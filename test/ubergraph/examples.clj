@@ -12,4 +12,7 @@
   (uber/graph [:a :b {:weight 2 :cost 200 :distance 10}]
               [:a :c {:weight 3 :cost 300 :distance 20}]))
 
+(def graph4
+  (uber/add-directed-edges graph2 [:a :d 8]))
+
 
