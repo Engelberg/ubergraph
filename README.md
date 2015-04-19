@@ -241,9 +241,25 @@ Multidigraphs are, as you'd expect, the directed-as-default version of multigrap
 
 As you build up graphs, random uuids are generated to link edges to attributes.  This randomness means that two graphs which are semantically equal might not necessarily be structurally equal in the Clojure sense.  The hashing and equality for Ubergraphs has been overridden to reflect an intuitive notion of equality, so you can trust, for example that (= (graph [1 2]) (graph [1 2])) even though the two graphs contain different uuids.
 
-### Summary
+### Algorithms
 
-Ubergraphs come in four flavors.  Graphs and Digraphs can be thought of as fully-featured versions of their Loom counterparts.  Loom's algorithms should work out of the box on those sorts of ubergraphs.  However, Multigraphs and Multidigraphs go far beyond Loom's capabilities, allowing for algorithms with parallel edges.  Most of Loom's algorithms fail to take into account the possibility of parallel edges, so you shouldn't expect Loom's algorithms to work properly on multigraphs.  Please help out by submitting pull requests which add to Ubergraph's collection of "curated" algorithms, known to work on graphs with and without parallel edges.
+Ubergraph Graphs and Digraphs can be thought of as fully-featured versions of their Loom counterparts.  Loom's algorithms should work out of the box on those sorts of ubergraphs.  
+
+For example:
+
+```clojure
+=> (require 'loom.alg)
+=> (loom.alg/dijkstra-path graph2 :a :d)
+(:a :b :d)
+```
+
+However, Multigraphs and Multidigraphs go far beyond Loom's capabilities, allowing for algorithms with parallel edges.  Most of Loom's algorithms fail to take into account the possibility of parallel edges, so you shouldn't expect Loom's algorithms to work properly on multigraphs.
+
+Ubergraph will eventually have its own curated repository of algorithms which are guaranteed to work on multigraphs.  For example:
+
+At the moment, this curated repository of algorithms is rather sparse.  Please help out by submitting pull requests which add to Ubergraph's collection of "curated" algorithms, known to work on graphs with and without parallel edges.
+
+As another example, loom.io/view works on all Ubergraphs, but could be dramatically improved by leveraging the abstraction that Ubergraph provides to query whether edges are directed or undirected, and ignoring mirror edges in order to draw a single undirected arrow for undirected edges, rather than two directed arrows the way loom.io/view draws it.  You can expect these sorts of improvements in future iterations of Ubergraph; in the meantime, pull requests are welcome to speed up the process.
 
 ### API
 
@@ -251,7 +267,7 @@ See the [Codox-generated docs for the Ubergraph API](http://engelberg.github.io/
 
 ## Relationship to Loom
 
-Loom is currently the most important graph library in the Clojure ecosystem.  Loom strives to achieve three goals:
+[Loom](https://github.com/aysylu/loom) is currently the most important graph library in the Clojure ecosystem.  Loom strives to achieve three goals:
 
 1. Loom factors graph behavior into a series of Clojure protocols.
 2. Loom provides default graph implementations for each of these protocols.
@@ -287,7 +303,6 @@ Establish an ubergraph.alg namespace where the community can help "curate" Loom'
 ### Step 5
 
 Ideally, I'm hoping that once all of Loom's algorithms have been successfully converted to work with multi-edge graphs, Ubergraph can be merged into Loom as the default multi-edge graph implementation.  If that turns out not to be practical, ubergraph will continue to exist independently as a kind of "Loom+", a graph data structure that works with all of Loom's protocols and algorithms, as well as supporting additional functionality.
-
 
 
 ## License

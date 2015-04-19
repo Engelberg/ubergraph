@@ -586,7 +586,7 @@ Undirected edges are counted only once."
     (frequencies (for [edge es]
                    (assoc edge :id (attrs g edge))))))
 
-(defn equal-graphs? [^Ubergraph g1 ^Ubergraph g2]
+(defn- equal-graphs? [^Ubergraph g1 ^Ubergraph g2]
   (or (.equals g1 g2)
       (and
         (or
@@ -601,7 +601,7 @@ Undirected edges are counted only once."
                       node2 (successors g1 node1)]
                   (equal-edges? g1 g2 node1 node2))))))
              
-(defn hash-graph [g]
+(defn- hash-graph [g]
   (let [h (:cached-hash g)
         val @h]
     (if (= val -1)

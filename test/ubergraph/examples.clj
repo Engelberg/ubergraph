@@ -1,6 +1,7 @@
 (ns ubergraph.examples
   (:require [clojure.test :refer :all]
-            [ubergraph.core :as uber]))
+            [ubergraph.core :as uber]
+            [ubergraph.alg :as alg]))
 
 (def graph1
   (uber/graph [:a :b] [:a :c] [:b :d]))
