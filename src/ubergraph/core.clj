@@ -197,9 +197,6 @@
   (nth [e i] (case i 0 src 1 dest 2 (attr (meta e) e :weight) nil))
   (nth [e i notFound] (case i 0 src 1 dest 2 (attr (meta e) e :weight) notFound)))   
   
-
-(alter-meta! #'->Edge assoc :no-doc true)
-
 ; An UndirectedEdge stores an additional field that signals whether this was the
 ; original direction that was added to the graph, or the "mirror" edge that was
 ; automatically added to go in the reverse direction.  This is a useful concept
@@ -219,7 +216,8 @@
   (nth [e i notFound] (case i 0 src 1 dest 2 (attr (meta e) e :weight) notFound)))   
 
 
-(defn edge? [o] (or (instance? Edge o) (instance? UndirectedEdge o)))
+(defn edge? "Tests whether o is an edge object"
+  [o] (or (instance? Edge o) (instance? UndirectedEdge o)))
 
 (defn- get-edge [g n1 n2] (first (find-edges g n1 n2)))
 
@@ -417,10 +415,14 @@ it is an edge."
     
     (Ubergraph. new-node-map allow-parallel? undirected? new-attrs)))
 
-(defn add-directed-edges [g & edges]
+(defn add-directed-edges 
+  "Adds directed edges, regardless of whether the underlying graph is directed or undirected"
+  [g & edges]
   (add-directed-edges* g edges))
 
-(defn add-undirected-edges [g & edges]
+(defn add-undirected-edges 
+  "Adds directed edges, regardless of whether the underlying graph is directed or undirected"
+  [g & edges]
   (add-undirected-edges* g edges))
 
 (defn build-graph
@@ -468,16 +470,24 @@ as Loom's build-graph."
 
 ;; All of these graph options can also serve as weighted graphs, just initialize accordingly.
 
-(defn multigraph [& inits]
+(defn multigraph 
+  "Multigraph constructor. See build-graph for description of valid inits"
+  [& inits]
   (apply build-graph (->Ubergraph {} true true {}) inits))
 
-(defn multidigraph [& inits]
+(defn multidigraph 
+  "Multidigraph constructor. See build-graph for description of valid inits"
+  [& inits]
   (apply build-graph (->Ubergraph {} true false {}) inits))
 
-(defn graph [& inits]
+(defn graph 
+  "Graph constructor. See build-graph for description of valid inits"
+  [& inits]
   (apply build-graph (->Ubergraph {} false true {}) inits))
 
-(defn digraph [& inits]
+(defn digraph
+  "Digraph constructor. See build-graph for description of valid inits"
+  [& inits]
   (apply build-graph (->Ubergraph {} false false {}) inits))
 
 ;; Friendlier printing
@@ -489,21 +499,30 @@ as Loom's build-graph."
     (:undirected? g) "Graph"
     :else "Digraph"))
 
-(defn count-nodes [g]
+(defn count-nodes "Counts how many nodes are in g" [g]
   (count (:node-map g)))
 
-(defn count-edges [g]
+(defn count-edges "Counts how many edges are in g.
+Undirected edges are counted twice, once for each direction."
+  [g]
+  (apply + (for [node (nodes g)]
+             (out-degree g node))))
+
+(defn count-unique-edges "Counts how many edges are in g.
+Undirected edges are counted only once."
+  [g]
   (count (for [edge (edges g)
                :when (not (mirror-edge? edge))]
-           edge)))
-           
+           edge)))           
 
-(defn pprint [g]
+(defn pprint
+  "Pretty print an ubergraph"
+  [g]
   (println (graph-type g))
   (println (count-nodes g) "Nodes:")
   (doseq [node (nodes g)] 
     (println \tab node))
-  (println (count-edges g) "Edges:")
+  (println (count-unique-edges g) "Edges:")
   (doseq [edge (edges g)]
     (cond
       (directed-edge? edge)
@@ -514,3 +533,13 @@ as Loom's build-graph."
       (println \tab (src edge) "<->" (dest edge) 
                (let [a (attrs g edge)]
                  (if (seq a) a ""))))))
+
+;; For Codox, don't want to document these constructors
+(alter-meta! #'->Edge assoc :no-doc true)
+(alter-meta! #'->NodeInfo assoc :no-doc true)
+(alter-meta! #'->Ubergraph assoc :no-doc true)
+(alter-meta! #'->UndirectedEdge assoc :no-doc true)
+(alter-meta! #'map->Edge assoc :no-doc true)
+(alter-meta! #'map->NodeInfo assoc :no-doc true)
+(alter-meta! #'map->Ubergraph assoc :no-doc true)
+(alter-meta! #'map->UndirectedEdge assoc :no-doc true)
