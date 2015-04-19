@@ -166,9 +166,15 @@ One way that Ubergraph improves upon Loom is that graph edges have a richer impl
      (uber/add-directed-edges [:a :c])
      uber/edges)
 
-(#ubergraph.core.UndirectedEdge{:id #uuid "3969fb54-0645-46e4-bad8-89cc28cee7cb", :src :b, :dest :a, :mirror? true}
- #ubergraph.core.Edge{:id #uuid "32d688aa-53cd-469f-a71b-3fa035d0e500", :src :a, :dest :c}
- #ubergraph.core.UndirectedEdge{:id #uuid "3969fb54-0645-46e4-bad8-89cc28cee7cb", :src :a, :dest :b, :mirror? false})
+({:id #uuid "4036b8a8-4ac2-40bd-ac13-051dac20b77d",
+  :src :b,
+  :dest :a,
+  :mirror? true}
+ {:id #uuid "15444a68-9da6-499c-a887-b16955e2740b", :src :a, :dest :c}
+ {:id #uuid "4036b8a8-4ac2-40bd-ac13-051dac20b77d",
+  :src :a,
+  :dest :b,
+  :mirror? false})
 ```
 
 The main thing to note here is that internally, all edges have a `:src` field, a `:dest` field, and a uuid, which you can think of as a pointer to the map of attributes for that edge.  The other thing to note is that undirected edges are stored internally as a pair of edge objects, one for each direction.  Both edges of the pair share the same attribute map and one of the edges is marked as a "mirror" edge.  This is critical because in some algorithms, we want to traverse over all edges in both directions, but in other algorithms we only want to traverse over unique edges.  Loom provides no mechanism for this, but Ubergraph makes this easy with the protocol function `mirror-edge?`, which returns true for the mirrored edge in an undirected pair of edges, and false for directed edges and the non-mirrored undirected edges.  So `(edges g)` gives you all the edges in a graph, and `(filter (complement mirror-edge?) (edges g))` would give you a sequence of unique edges, without listing both directions of the same undirected edge.
