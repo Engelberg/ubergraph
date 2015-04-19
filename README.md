@@ -45,23 +45,23 @@ Digraphs and Multidigraphs, by default, treat new edge definitions as directed/o
     <th>No parallel edges<br></th>
   </tr>
   <tr>
-    <td>Directed Edges (by default)<br></td>
+    <th>Directed Edges (by default)<br></th>
     <td>Multidigraph</td>
     <td>Digraph</td>
   </tr>
   <tr>
-    <td>Undirected Edges (by default)<br></td>
+    <th>Undirected Edges (by default)<br></th>
     <td>Multigraph</td>
-    <td></td>
+    <td>Graph</td>
   </tr>
 </table>
 
 All ubergraph constructors are multiple arity functions that can take an arbitrary number of "inits" where an init is defined as one of:
 
 + Edge description:
-++ [src dest]
-++ [src dest weight]
-++ [src dest attribute-map]
+	+ [src dest]
+	+ [src dest weight]
+	+ [src dest attribute-map]
 + Adjacency map (e.g., {1 [2 3], 2 [3]} adds the edges 1->2, 1->3, and 2->3).
 + Weighted adjacency map (e.g., {:a {:b 2, :c 3}} creates an edge of weight 2 between :a and :b, etc.)
 + Another ubergraph
@@ -153,20 +153,22 @@ Graph
 ```
 
 Ubergraph supports all of Loom's protocols, so you can do all the things you'd expect to be able to do to graphs:
-nodes, edges, has-node?, has-edge?, successors, out-degree, out-edges, predecessors, in-degree, in-edges, transpose, weight, add-nodes, add-nodes*, add-edges, add-edges*, remove-nodes, remove-nodes*, remove-edges, remove-edges*, and remove-all.
+nodes, edges, has-node?, has-edge?, successors, out-degree, out-edges, predecessors, in-degree, in-edges, transpose, weight, add-nodes, add-nodes\*, add-edges, add-edges\*, remove-nodes, remove-nodes\*, remove-edges, remove-edges\*, and remove-all.
 
 Ubergraph also supports the ability to lookup, add, and remove attributes to any node or edge in the graph via: add-attr, remove-attr, attr, and attrs.
 
 #### Edges
 
-However, one way that Ubergraph improves upon Loom is that graph edges have a richer implementation and support additional abstractions.  This richer implementation is what allows directed and undirected edges to coexist, and allows for parallel edges in multigraphs.  So where Loom functions return [src dest] tuples or [src dest weight] tuples to represent edges, Ubergraph returns actual Edge or UndirectedEdge objects.  For example,
+One way that Ubergraph improves upon Loom is that graph edges have a richer implementation and support additional abstractions.  This richer implementation is what allows directed and undirected edges to coexist, and allows for parallel edges in multigraphs.  So where Loom functions return [src dest] tuples or [src dest weight] tuples to represent edges, Ubergraph returns actual Edge or UndirectedEdge objects.  For example,
 
 ```clojure
 => (-> (uber/graph [:a :b])
      (uber/add-directed-edges [:a :c])
      uber/edges)
 
-(#ubergraph.core.UndirectedEdge{:id #uuid "3969fb54-0645-46e4-bad8-89cc28cee7cb", :src :b, :dest :a, :mirror? true} #ubergraph.core.Edge{:id #uuid "32d688aa-53cd-469f-a71b-3fa035d0e500", :src :a, :dest :c} #ubergraph.core.UndirectedEdge{:id #uuid "3969fb54-0645-46e4-bad8-89cc28cee7cb", :src :a, :dest :b, :mirror? false})
+(#ubergraph.core.UndirectedEdge{:id #uuid "3969fb54-0645-46e4-bad8-89cc28cee7cb", :src :b, :dest :a, :mirror? true}
+ #ubergraph.core.Edge{:id #uuid "32d688aa-53cd-469f-a71b-3fa035d0e500", :src :a, :dest :c}
+ #ubergraph.core.UndirectedEdge{:id #uuid "3969fb54-0645-46e4-bad8-89cc28cee7cb", :src :a, :dest :b, :mirror? false})
 ```
 
 The main thing to note here is that internally, all edges have a `:src` field, a `:dest` field, and a uuid, which you can think of as a pointer to the map of attributes for that edge.  The other thing to note is that undirected edges are stored internally as a pair of edge objects, one for each direction.  Both edges of the pair share the same attribute map and one of the edges is marked as a "mirror" edge.  This is critical because in some algorithms, we want to traverse over all edges in both directions, but in other algorithms we only want to traverse over unique edges.  Loom provides no mechanism for this, but Ubergraph makes this easy with the protocol function `mirror-edge?`, which returns true for the mirrored edge in an undirected pair of edges, and false for directed edges and the non-mirrored undirected edges.  So `(edges g)` gives you all the edges in a graph, and `(filter (complement mirror-edge?) (edges g))` would give you a sequence of unique edges, without listing both directions of the same undirected edge.
