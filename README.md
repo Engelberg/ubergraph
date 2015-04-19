@@ -235,7 +235,7 @@ Ubergraphs come in four flavors.  Graphs and Digraphs can be thought of as fully
 
 ### API
 
-See the [Codox-generated docs for the Ubergraph API](https://raw.githubusercontent.com/Engelberg/ubergraph/master/doc/ubergraph.core.html)
+See the [Codox-generated docs for the Ubergraph API](http://engelberg.github.io/ubergraph/ubergraph.core.html)
 
 ## Relationship to Loom
 
