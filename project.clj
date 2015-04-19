@@ -6,6 +6,6 @@
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [org.clojure/data.priority-map "0.0.5"]
                  [aysylu/loom "0.5.0"]
-                 [potemkin "0.3.11"]]
-  ;:codox {:include [ubergraph.core]}
+                 [potemkin "0.3.13"]]
+  :codox {:include [ubergraph.core]}
   )

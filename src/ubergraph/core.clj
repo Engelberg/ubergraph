@@ -110,21 +110,21 @@
   (edges [g] (for [[node node-info] (:node-map g)
                    [dest edges] (:out-edges node-info),
                    edge edges]
-               edge))
+               (with-meta edge g)))
   (has-node? [g node] (boolean (get-in g [:node-map node])))
   (has-edge? [g n1 n2] (boolean (seq (find-edges g n1 n2))))
   (successors [g] (partial successors g))
   (successors [g node] (distinct (map dest (out-edges g node))))
   (out-degree [g node] (get-in g [:node-map node :out-degree]))
   ;(out-edges [g] (partial out-edges g)) 
-  (out-edges [g node] (apply concat (vals (get-in g [:node-map node :out-edges]))))
+  (out-edges [g node] (map #(with-meta % g) (apply concat (vals (get-in g [:node-map node :out-edges])))))
   
   lg/Digraph
   (predecessors [g] (partial predecessors g))
   (predecessors [g node] (map src (in-edges g node)))
   (in-degree [g node] (get-in g [:node-map node :in-degree]))
   ;(in-edges [g] (partial in-edges g))
-  (in-edges [g node] (apply concat (vals (get-in g [:node-map node :in-edges]))))
+  (in-edges [g node] (map #(with-meta % g) (apply concat (vals (get-in g [:node-map node :in-edges])))))
   (transpose [g] (transpose-impl g))
   
   lg/WeightedGraph
@@ -192,7 +192,11 @@
   up/MixedDirectionEdgeTests
   (undirected-edge? [e] false)
   (directed-edge? [e] true)
-  (mirror-edge? [e] false))
+  (mirror-edge? [e] false)
+  clojure.lang.Indexed
+  (nth [e i] (case i 0 src 1 dest 2 (attr (meta e) e :weight) nil))
+  (nth [e i notFound] (case i 0 src 1 dest 2 (attr (meta e) e :weight) notFound)))   
+  
 
 (alter-meta! #'->Edge assoc :no-doc true)
 
@@ -209,7 +213,11 @@
   up/MixedDirectionEdgeTests
   (undirected-edge? [e] true)
   (directed-edge? [e] false)
-  (mirror-edge? [e] mirror?))
+  (mirror-edge? [e] mirror?)
+  clojure.lang.Indexed
+  (nth [e i] (case i 0 src 1 dest 2 (attr (meta e) e :weight) nil))
+  (nth [e i notFound] (case i 0 src 1 dest 2 (attr (meta e) e :weight) notFound)))   
+
 
 (defn edge? [o] (or (instance? Edge o) (instance? UndirectedEdge o)))
 
@@ -472,3 +480,37 @@ as Loom's build-graph."
 (defn digraph [& inits]
   (apply build-graph (->Ubergraph {} false false {}) inits))
 
+;; Friendlier printing
+
+(defn- graph-type [g]
+  (cond
+    (and (:allow-parallel? g) (:undirected? g)) "Multigraph"
+    (:allow-parallel? g) "Multidigraph"
+    (:undirected? g) "Graph"
+    :else "Digraph"))
+
+(defn count-nodes [g]
+  (count (:node-map g)))
+
+(defn count-edges [g]
+  (count (for [edge (edges g)
+               :when (not (mirror-edge? edge))]
+           edge)))
+           
+
+(defn pprint [g]
+  (println (graph-type g))
+  (println (count-nodes g) "Nodes:")
+  (doseq [node (nodes g)] 
+    (println \tab node))
+  (println (count-edges g) "Edges:")
+  (doseq [edge (edges g)]
+    (cond
+      (directed-edge? edge)
+      (println \tab (src edge) "->" (dest edge) 
+               (let [a (attrs g edge)]
+                 (if (seq a) a "")))
+      (and (undirected-edge? edge) (not (mirror-edge? edge)))
+      (println \tab (src edge) "<->" (dest edge) 
+               (let [a (attrs g edge)]
+                 (if (seq a) a ""))))))
