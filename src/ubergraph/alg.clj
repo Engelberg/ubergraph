@@ -65,7 +65,7 @@ using the fewest possible edges."
 (defaults to weight). Returns a list of edges that form a path with the least cost 
 from one of the starting nodes to a node that satisfies the goal? predicate."  
   ([g starting-nodes goal?]
-    (least-cost-path g starting-nodes goal? uber/weight))
+    (least-cost-path g starting-nodes goal? (uber/weight g)))
   ([g starting-nodes goal? cost-fn]
     (let [least-costs (HashMap.),
         backlinks (HashMap.)

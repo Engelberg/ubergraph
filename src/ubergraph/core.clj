@@ -109,7 +109,8 @@
 (def-map-type Ubergraph [node-map allow-parallel? undirected? attrs cached-hash]
   AbstractMap
   lg/Graph
-  (nodes [g] (.keySet ^clojure.lang.IPersistentMap (:node-map g)))
+  (nodes [g] (let [^clojure.lang.IPersistentMap m (:node-map g)] 
+               (.keySet m)))
   (edges [g] (for [[node node-info] (:node-map g)
                    [dest edges] (:out-edges node-info),
                    edge edges]
@@ -242,7 +243,15 @@
   (mirror-edge? [e] mirror?)
   clojure.lang.Indexed
   (nth [e i] (case i 0 src 1 dest 2 (attr (meta e) e :weight) nil))
-  (nth [e i notFound] (case i 0 src 1 dest 2 (attr (meta e) e :weight) notFound)))   
+  (nth [e i notFound] (case i 0 src 1 dest 2 (attr (meta e) e :weight) notFound)))
+
+(extend-type 
+  Object
+  up/MixedDirectionEdgeTests
+  (undirected-edge? [e] false)
+  (directed-edge? [e] false)
+  (mirror-edge? [e] false))
+              
 
 
 (defn edge? "Tests whether o is an edge object"
@@ -278,7 +287,7 @@
             (and src dest) (get-in g [:node-map src :out-edges dest])
             src (out-edges g src)
             dest (in-edges g dest)
-            :else (partial find-edges g))
+            :else (edges g))
           attributes (dissoc attributes :src :dest)]
       (if (pos? (count attributes))
         (for [edge edges
@@ -368,7 +377,6 @@
           (add-undirected-edge src dest attributes)))
       :else (add-undirected-edge g src dest attributes))))
 
-
 (defn edge-description->edge 
   "Many ubergraph functions can take either an *edge description* (i.e., [src dest]
 [src dest weight] or [src dest attribute-map]) or an actual edge object.  This function
@@ -452,7 +460,23 @@ it is an edge."
   [g & edges]
   (add-undirected-edges* g edges))
 
-(defn build-graph
+(defn- strip-equal-id-edges
+  ([inits] (strip-equal-id-edges (seq inits) #{}))
+  ([inits seen-ids]    
+    (when inits
+      (let [init (first inits)]
+        (cond
+          (edge? init) (if (seen-ids (:id init))
+                         (recur (next inits) seen-ids)
+                         (cons init (lazy-seq (strip-equal-id-edges
+                                                (next inits)
+                                                (conj seen-ids (:id init))))))
+          :else (cons init (lazy-seq (strip-equal-id-edges
+                                       (next inits)
+                                       seen-ids))))))))
+                                                
+
+  (defn build-graph
   "Builds graphs using nodes and edge descriptions of the form [src dest], 
 [src dest weight], or [src dest attribute-map].  Also can build from other
 ubergraphs, and from adjacency maps using the same adjacency map notation 
@@ -462,21 +486,33 @@ as Loom's build-graph."
                  (cond
                    ;; ubergraph
                    (instance? Ubergraph init)
-                   (if (zero? (count (:node-map g)))
-                     init
-                     (let [new-g (add-nodes* g (nodes init)),
-                           directed-edges (for [e (edges init)
-                                                :when (not (undirected-edge? e))]
+                   (let [new-g (add-nodes* g (nodes init)),
+                         directed-edges (for [e (edges init)
+                                              :when (directed-edge? e)]
+                                          [(src e) (dest e) (attrs init e)])
+                         undirected-edges (for [e (edges init),
+                                                :when (and (undirected-edge? e)
+                                                           (not (mirror-edge? e)))]
                                             [(src e) (dest e) (attrs init e)])
-                           undirected-edges (for [e (edges init),
-                                                  :when (undirected-edge? e)]
-                                              [(src e) (dest e) (attrs init e)])
-                           new-g (add-directed-edges* new-g directed-edges)
-                           new-g (add-undirected-edges* new-g undirected-edges)]
-                       new-g))
+                         new-g (add-directed-edges* new-g directed-edges)
+                         new-g (add-undirected-edges* new-g undirected-edges)]
+                     new-g)
+                 
+                     ;; Edge objects
+                     (directed-edge? init)
+                     (let [new-g (add-nodes g (src init) (dest init)),
+                           new-g (add-directed-edges g [(src init) (dest init)
+                                                        (attrs (meta init) init)])]
+                       new-g)
+                   
+                     (undirected-edge? init)
+                     (let [new-g (add-nodes g (src init) (dest init)),
+                         new-g (add-undirected-edges g [(src init) (dest init)
+                                                        (attrs (meta init) init)])]
+                     new-g)                   
 
                    ;; Adjacency map
-                   (map? init)
+                     (map? init)
                    (let [es (if (map? (val (first init)))
                               (for [[n nbrs] init
                                     [nbr wt] nbrs]
@@ -488,12 +524,12 @@ as Loom's build-graph."
                        (add-nodes* (keys init))
                        (add-edges* es)))
                    
-                   ;; edge
-                   (and (vector? init) (#{2,3} (count init)))
+                   ;; edge description
+                     (and (vector? init) (#{2,3} (count init)))
                    (add-edge g [(init 0) (init 1) (number->map (get init 2))])             
                    ;; node
-                   :else (add-node g init)))]
-    (reduce build g inits)))
+                     :else (add-node g init)))]
+    (reduce build g (strip-equal-id-edges inits))))
 
 ;; All of these graph options can also serve as weighted graphs, just initialize accordingly.
 
@@ -503,18 +539,18 @@ as Loom's build-graph."
   (apply build-graph (->Ubergraph {} true true {} (atom -1)) inits))
 
 (defn multidigraph 
-  "Multidigraph constructor. See build-graph for description of valid inits"
-  [& inits]
+    "Multidigraph constructor. See build-graph for description of valid inits"
+    [& inits]
   (apply build-graph (->Ubergraph {} true false {} (atom -1)) inits))
 
 (defn graph 
-  "Graph constructor. See build-graph for description of valid inits"
-  [& inits]
+    "Graph constructor. See build-graph for description of valid inits"
+    [& inits]
   (apply build-graph (->Ubergraph {} false true {} (atom -1)) inits))
 
 (defn digraph
-  "Digraph constructor. See build-graph for description of valid inits"
-  [& inits]
+    "Digraph constructor. See build-graph for description of valid inits"
+    [& inits]
   (apply build-graph (->Ubergraph {} false false {} (atom -1)) inits))
 
 ;; Friendlier printing
