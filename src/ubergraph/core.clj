@@ -1,5 +1,6 @@
 (ns ubergraph.core
-  (:require [potemkin :refer [import-vars]]
+  (:require [potemkin :refer [import-vars def-map-type deftype+]]
+            [potemkin.collections :refer [AbstractMap]]
             [loom.graph :as lg] 
             [loom.attr :as la]
             [ubergraph.protocols :as up]
@@ -102,11 +103,13 @@
 ; in the Ubergraph record.
 (declare transpose-impl get-edge find-edges-impl find-edge-impl add-node add-edge remove-node remove-edge
          edge-description->edge resolve-node-or-edge 
-         force-add-directed-edge force-add-undirected-edge remove-edges)
+         force-add-directed-edge force-add-undirected-edge remove-edges
+         equal-graphs? hash-graph)
 
-(defrecord Ubergraph [node-map allow-parallel? undirected? attrs]
+(def-map-type Ubergraph [node-map allow-parallel? undirected? attrs cached-hash]
+  AbstractMap
   lg/Graph
-  (nodes [g] (keys (:node-map g)))
+  (nodes [g] (.keySet ^clojure.lang.IPersistentMap (:node-map g)))
   (edges [g] (for [[node node-info] (:node-map g)
                    [dest edges] (:out-edges node-info),
                    edge edges]
@@ -140,7 +143,7 @@
   (add-edges* [g edge-definitions] (reduce (fn [g edge] (add-edge g edge)) g edge-definitions)) 
   (remove-nodes* [g nodes] (reduce remove-node g nodes))
   (remove-edges* [g edges] (reduce remove-edge g edges))
-  (remove-all [g] (Ubergraph. {} allow-parallel? undirected? {}))
+  (remove-all [g] (Ubergraph. {} allow-parallel? undirected? {} (atom -1)))
   
   la/AttrGraph
   (add-attr [g node-or-edge k v] 
@@ -173,7 +176,33 @@
   (add-directed-edges* [g edge-definitions] (reduce (fn [g edge] (force-add-directed-edge g edge))
                                                     g edge-definitions))
   (add-undirected-edges* [g edge-definitions] (reduce (fn [g edge] (force-add-undirected-edge g edge))
-                                                      g edge-definitions)))
+                                                      g edge-definitions))
+  
+  (get [this key default-value]
+       (case key
+         :node-map node-map
+         :allow-parallel? allow-parallel?
+         :undirected? undirected?
+         :attrs attrs
+         :cached-hash cached-hash
+         default-value))
+  (assoc [this key value]
+         (case key
+           :node-map (Ubergraph. value allow-parallel? undirected? attrs cached-hash)
+           :allow-parallel? (Ubergraph. node-map value undirected? attrs cached-hash)
+           :undirected? (Ubergraph. node-map allow-parallel? value attrs cached-hash)
+           :attrs (Ubergraph. node-map allow-parallel? undirected? value cached-hash)
+           :cached-hash (Ubergraph. node-map allow-parallel? undirected? attrs value)
+           this))
+  (dissoc [this key] this)
+  (keys [this] [:node-map :allow-parallel? :undirected? :attrs :cached-hash])
+  (meta [this] nil)
+  (with-meta [this meta] this)
+  
+  (hasheq [this] (hash-graph this))
+  (equiv [this other] (and (instance? Ubergraph other)
+                           (equal-graphs? this other)))
+  )
 
 
 ; A node-id is anything the user wants it to be -- a number, a keyword, a data structure
@@ -277,7 +306,7 @@
                             (update-in [:in-edges src] fconj edge)
                             (update-in [:in-degree] finc))
         new-node-map (assoc node-map src new-node-map-src dest new-node-map-dest)]
-    (Ubergraph. new-node-map (:allow-parallel? g) (:undirected? g) new-attrs)))
+    (Ubergraph. new-node-map (:allow-parallel? g) (:undirected? g) new-attrs (atom -1))))
 
 (defn- add-undirected-edge [g src dest attributes]
   (let [g (-> g (add-node src) (add-node dest))
@@ -302,7 +331,7 @@
                             (update-in [:in-degree] finc)
                             (update-in [:out-degree] finc))
         new-node-map (assoc node-map src new-node-map-src dest new-node-map-dest)]
-    (Ubergraph. new-node-map (:allow-parallel? g) (:undirected? g) new-attrs)))
+    (Ubergraph. new-node-map (:allow-parallel? g) (:undirected? g) new-attrs (atom -1))))
 
 (defn- number->map [n]
   (if (number? n) {:weight n} n))
@@ -411,7 +440,7 @@ it is an edge."
         new-attrs (into {} (for [[o attr] attrs]
                              (if (edge? o) [(swap-edge o) attr] [o attr])))]
     
-    (Ubergraph. new-node-map allow-parallel? undirected? new-attrs)))
+    (Ubergraph. new-node-map allow-parallel? undirected? new-attrs (atom -1))))
 
 (defn add-directed-edges 
   "Adds directed edges, regardless of whether the underlying graph is directed or undirected"
@@ -471,22 +500,22 @@ as Loom's build-graph."
 (defn multigraph 
   "Multigraph constructor. See build-graph for description of valid inits"
   [& inits]
-  (apply build-graph (->Ubergraph {} true true {}) inits))
+  (apply build-graph (->Ubergraph {} true true {} (atom -1)) inits))
 
 (defn multidigraph 
   "Multidigraph constructor. See build-graph for description of valid inits"
   [& inits]
-  (apply build-graph (->Ubergraph {} true false {}) inits))
+  (apply build-graph (->Ubergraph {} true false {} (atom -1)) inits))
 
 (defn graph 
   "Graph constructor. See build-graph for description of valid inits"
   [& inits]
-  (apply build-graph (->Ubergraph {} false true {}) inits))
+  (apply build-graph (->Ubergraph {} false true {} (atom -1)) inits))
 
 (defn digraph
   "Digraph constructor. See build-graph for description of valid inits"
   [& inits]
-  (apply build-graph (->Ubergraph {} false false {}) inits))
+  (apply build-graph (->Ubergraph {} false false {} (atom -1)) inits))
 
 ;; Friendlier printing
 
@@ -539,5 +568,42 @@ Undirected edges are counted only once."
 (alter-meta! #'->UndirectedEdge assoc :no-doc true)
 (alter-meta! #'map->Edge assoc :no-doc true)
 (alter-meta! #'map->NodeInfo assoc :no-doc true)
-(alter-meta! #'map->Ubergraph assoc :no-doc true)
 (alter-meta! #'map->UndirectedEdge assoc :no-doc true)
+
+;; Equality is more complicated
+
+(defn- equal-edges? [g1 g2 n1 n2]
+  (let [edges-between-g1 (find-edges g1 n1 n2),
+        replace-ids-g1 (frequencies (for [edge edges-between-g1]
+                                      (assoc edge :id (attrs g1 edge))))
+        edges-between-g2 (find-edges g2 n1 n2),
+        replace-ids-g2 (frequencies (for [edge edges-between-g2]
+                                      (assoc edge :id (attrs g2 edge))))]
+    (= replace-ids-g1 replace-ids-g2)))
+
+(defn- edges-freqs [g]
+  (let [es (edges g)]
+    (frequencies (for [edge es]
+                   (assoc edge :id (attrs g edge))))))
+
+(defn equal-graphs? [^Ubergraph g1 ^Ubergraph g2]
+  (or (.equals g1 g2)
+      (and (= (nodes g1) (nodes g2))
+           (= (count (:attrs g1)) (count (:attrs g2)))
+           (= (count-edges g1) (count-edges g2))
+           (every? identity
+                   (for [node1 (nodes g1),
+                         node2 (successors g1 node1)]
+                     (equal-edges? g1 g2 node1 node2))))))
+             
+(defn hash-graph [g]
+  (let [h (:cached-hash g)
+        val @h]
+    (if (= val -1)
+      (let [ns (nodes g),
+            code (hash {:nodes ns,
+                        :edges (edges-freqs g)})]
+        (reset! h code)
+        code)
+      val)))
+        

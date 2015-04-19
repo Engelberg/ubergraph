@@ -237,6 +237,10 @@ When you don't supply :src and :dest, the query won't be particularly efficient,
 
 Multidigraphs are, as you'd expect, the directed-as-default version of multigraphs.
 
+### Equality
+
+As you build up graphs, random uuids are generated to link edges to attributes.  This randomness means that two graphs which are semantically equal might not necessarily be structurally equal in the Clojure sense.  The hashing and equality for Ubergraphs has been overridden to reflect an intuitive notion of equality, so you can trust, for example that (= (graph [1 2]) (graph [1 2])) even though the two graphs contain different uuids.
+
 ### Summary
 
 Ubergraphs come in four flavors.  Graphs and Digraphs can be thought of as fully-featured versions of their Loom counterparts.  Loom's algorithms should work out of the box on those sorts of ubergraphs.  However, Multigraphs and Multidigraphs go far beyond Loom's capabilities, allowing for algorithms with parallel edges.  Most of Loom's algorithms fail to take into account the possibility of parallel edges, so you shouldn't expect Loom's algorithms to work properly on multigraphs.  Please help out by submitting pull requests which add to Ubergraph's collection of "curated" algorithms, known to work on graphs with and without parallel edges.
