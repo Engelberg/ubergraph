@@ -200,7 +200,8 @@ from one of the starting nodes to a node that satisfies the goal? predicate."
 
 (defn shortest-path 
   "Finds the shortest path in graph g from a collection of starting nodes to
-   any node that satisfies the goal? predicate.
+   any node that satisfies the goal? predicate.  Returns an implementation of
+   the IPath protocol (edges-in-path, nodes-in-path, cost-of-path).
 
    Optionally takes an options-map which can contain the following entries:
    :cost-fn - A function that takes an edge as an input and returns a cost 
@@ -211,7 +212,7 @@ from one of the starting nodes to a node that satisfies the goal? predicate."
    :edge-filter - A predicate function that takes an edge and returns true or false.
              If specified, only edges that pass this edge-filter test will be considered in the search.
 "
-  ([g starting-nodes goal?] (shortest-path g starting-nodes goal?))
+  ([g starting-nodes goal?] (shortest-path g starting-nodes goal? {}))
   ([g starting-nodes goal? options-map]
     (let [cost-fn (get options-map :cost-fn)
           heuristic-fn (get options-map :heuristic-fn)
@@ -227,3 +228,41 @@ from one of the starting nodes to a node that satisfies the goal? predicate."
         :else
         (least-cost-path g starting-nodes goal? cost-fn edge-filter)))))
                 
+(defn shortest-paths-from 
+  "Finds the shortest path in graph g from a collection of starting nodes to
+   every other reachable node.  Returns an implementation of the 
+   IAllPathsFromSource protocol (edges-in-path-to, nodes-in-path-to, cost-of-path-to).
+
+   Optionally takes an options-map which can contain the following entries:
+   :cost-fn - A function that takes an edge as an input and returns a cost 
+             (defaults to every edge having a cost of 1)
+   :edge-filter - A predicate function that takes an edge and returns true or false.
+             If specified, only edges that pass this edge-filter test will be considered in the search.
+"
+  ([g starting-nodes] (shortest-paths-from g starting-nodes {}))
+  ([g starting-nodes options-map]
+    (let [goal? no-goal
+          cost-fn (get options-map :cost-fn)          
+          edge-filter (get options-map :edge-filter (constantly true))]
+      (cond
+        (nil? cost-fn)
+        (least-edges-path g starting-nodes goal? edge-filter),
+        
+        :else
+        (least-cost-path g starting-nodes goal? cost-fn edge-filter)))))
+
+(defn shortest-paths 
+  "Finds the shortest path in graph g between every pair of nodes.  
+   Returns an implementation of the IAllPaths protocol 
+   (edges-in-path-between, nodes-in-path-between, cost-of-path-between).
+
+   Optionally takes an options-map which can contain the following entries:
+   :cost-fn - A function that takes an edge as an input and returns a cost 
+             (defaults to every edge having a cost of 1)
+   :edge-filter - A predicate function that takes an edge and returns true or false.
+             If specified, only edges that pass this edge-filter test will be considered in the search.
+"
+  ([g] (shortest-paths g {}))
+  ([g options-map]
+    (->AllPaths (into {} (for [node (uber/nodes g)]
+                           (shortest-paths-from g node options-map))))))
