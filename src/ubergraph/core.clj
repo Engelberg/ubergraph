@@ -57,7 +57,8 @@
    mirror-edge?
    ; MixedDirectionGraph protocol
    add-directed-edges*
-   add-undirected-edges*]
+   add-undirected-edges*
+   ]
    )
    
   
@@ -276,7 +277,7 @@
 (def ^:private finc (fnil inc 0))
 
 (defn- submap? [m1 m2]
-  (every? identity (for [[k v] m1] (= (m2 k) v))))
+  (every? identity (for [[k v] m1] (= (get m2 k) v))))
 
 (defn- find-edges-impl 
   ([g src dest]

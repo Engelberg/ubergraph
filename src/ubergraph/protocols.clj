@@ -42,3 +42,27 @@
 (defprotocol MixedDirectionGraph
   (add-directed-edges* [g edges] "Adds directed edges regardless of the graph's undirected/directed default")
   (add-undirected-edges* [g edges] "Adds undirected edges regardless of the graph's undirected/directed default"))
+
+
+; Path protocols
+
+(defprotocol IPath "All the things you can do to a path"
+  (edges-in-path [path] "A list of edges comprising the path" )
+  (nodes-in-path [path] "A list of nodes comprising the path" )
+  (cost-of-path [path] "Returns the cost of the path with respect to the property that was minimized
+in the search that produced this path." ))
+
+(defprotocol IAllPathsFromSource "All the things you can do to an object that knows how to produce 
+paths on demand from a given source."
+  (edges-in-path-to [path dest] "A list of all edges comprising the path to dest" )
+  (nodes-in-path-to [path dest] "A list of all nodes comprising the path to dest" )
+  (cost-of-path-to [path dest] "Cost of the path to dest with respect to the property that was minimized
+in the search that produced this path." ))
+
+(defprotocol IAllPaths "All the things you can do to an object that knows how to produce paths
+on demand between any pair of nodes."
+  (edges-in-path-between [path src dest] "A list of all edges along the path between src and dest" )
+  (nodes-in-path-between [path src dest] "A list of all nodes along the path between src and dest" )
+  (cost-of-path-between [path src dest] "Cost of path between src and dest with respect to the property that was minimized 
+in the search that produced this path."))
+
