@@ -16,13 +16,8 @@
    cost-of-path
    start-of-path
    end-of-path
-   edges-in-path-to
-   nodes-in-path-to
-   cost-of-path-to
-   start-of-path-to
-   edges-in-path-between
-   nodes-in-path-between
-   cost-of-path-between])
+   path-to
+   path-between])
 
 (declare find-path)
 
@@ -38,31 +33,22 @@
 
 (defrecord AllPathsFromSource [^HashMap backlinks ^HashMap least-costs]
   ubergraph.protocols/IAllPathsFromSource
-  (edges-in-path-to [this dest] (find-path dest backlinks))
-  (nodes-in-path-to [this dest] (let [list-of-edges (find-path dest backlinks)]
-                                  (when (seq list-of-edges)
-                                    (cons (uber/src (first list-of-edges))
-                                          (map uber/dest list-of-edges)))))
-  (cost-of-path-to [this dest] (.get least-costs dest))
-  (start-of-path-to [this dest] (first (nodes-in-path this))))
+  (path-to [this dest]
+    (->Path (delay (find-path dest backlinks))
+            (.get least-costs dest)
+            dest)))
 
 (defrecord AllBFSPathsFromSource [^HashMap backlinks ^HashMap depths]
   ubergraph.protocols/IAllPathsFromSource
-  (edges-in-path-to [this dest] (find-path dest backlinks))
-  (nodes-in-path-to [this dest] (let [list-of-edges (find-path dest backlinks)]
-                                  (when (seq list-of-edges)
-                                    (cons (uber/src (first list-of-edges))
-                                          (map uber/dest list-of-edges)))))
-  (cost-of-path-to [this dest] (.get depths dest)))
-
+  (path-to [this dest]
+    (->Path (delay (find-path dest backlinks))
+            (.get depths dest)
+            dest)))
+            
 (defrecord AllPaths [all-paths]
   ubergraph.protocols/IAllPaths
-  (edges-in-path-between [this src dest]
-    (edges-in-path-to (get all-paths src) dest))
-  (nodes-in-path-between [this src dest]
-    (nodes-in-path-to (get all-paths src) dest))
-  (cost-of-path-between [this src dest]
-    (cost-of-path-to (get all-paths src) dest)))
+  (path-between [this src dest]
+    (path-to (get all-paths src) dest)))
 
 (alter-meta! #'->Path assoc :no-doc true)
 (alter-meta! #'->AllPathsFromSource assoc :no-doc true)
@@ -79,14 +65,9 @@
   (start-of-path [this] nil)
   (end-of-path [this] nil)
   ubergraph.protocols/IAllPaths
-  (edges-in-path-to [this dest] nil)
-  (nodes-in-path-to [this dest] nil)
-  (cost-of-path-to [this dest] nil)
-  (start-of-path-to [this dest] nil)
+  (path-to [this dest] nil)
   ubergraph.protocols/IAllPathsFromSource
-  (edges-in-path-between [this src dest] nil)
-  (nodes-in-path-between [this src dest] nil)
-  (cost-of-path-between [this src dest] nil))     
+  (path-between [this src dest] nil))     
 
 (def no-goal (with-meta #{} {:no-goal true})) ; Used to search all possibilities
 

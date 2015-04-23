@@ -54,18 +54,10 @@ in the search that produced this path." )
   (start-of-path [path] "Returns the first node in the path")
   (end-of-path [path] "Returns the last node in the path"))
 
-(defprotocol IAllPathsFromSource "All the things you can do to an object that knows how to produce 
-paths on demand from a given source."
-  (edges-in-path-to [path dest] "A list of all edges comprising the path to dest" )
-  (nodes-in-path-to [path dest] "A list of all nodes comprising the path to dest" )
-  (cost-of-path-to [path dest] "Cost of the path to dest with respect to the property that was minimized
-in the search that produced this path." )
-  (start-of-path-to [path dest] "First node in the path to dest"))
+(defprotocol IAllPathsFromSource "An object that knows how to produce paths on demand from a given source,
+using path-to"
+  (path-to [path dest] "The shortest path to dest"))
 
-(defprotocol IAllPaths "All the things you can do to an object that knows how to produce paths
-on demand between any pair of nodes."
-  (edges-in-path-between [path src dest] "A list of all edges along the path between src and dest" )
-  (nodes-in-path-between [path src dest] "A list of all nodes along the path between src and dest" )
-  (cost-of-path-between [path src dest] "Cost of path between src and dest with respect to the property that was minimized 
-in the search that produced this path."))
-
+(defprotocol IAllPaths "An object that knows how to produce paths on demand between any pair of nodes,
+using path-between"
+  (path-between [path src dest] "The shortest path between src and dest" ))
