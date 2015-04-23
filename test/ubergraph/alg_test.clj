@@ -47,10 +47,18 @@
        ;#{:r} (set (bf-traverse g2 :r :when #(< %3 1)))
        ;#{:r :o :b :g} (set (bf-traverse g2 :r :when #(< %3 2)))
        ;#{:r :o :b :g :p} (set (bf-traverse g2 :r :when #(< %3 3)))
-       [:a :e :j] (alg/nodes-in-path (alg/shortest-path g4 [:a] #{:j}))
-       [:a :e :j] (alg/nodes-in-path (alg/shortest-path g4u [:a] #{:j}))
+       [:a :e :j] (alg/nodes-in-path (alg/shortest-path g4 {:start-node :a :end-node :j}))
+       [:a :e :j] (alg/nodes-in-path (alg/shortest-path g4u {:start-node :a :end-node :j}))
        [:a :c :h :j] (la/shortest-path g4u :a :j)
-       [:a :c :h :j] (alg/nodes-in-path (alg/shortest-path g4u [:a] #{:j} {:cost-fn #(uber/weight g4u %)}))
-       [:a :c :h :j] (alg/nodes-in-path (alg/shortest-path g4 [:a] #{:j} {:cost-fn #(uber/weight g4 %)}))
+       [:a :c :h :j] (alg/nodes-in-path 
+                       (alg/shortest-path g4u 
+                                          {:start-node :a,
+                                           :end-node :j,
+                                           :cost-attr :weight})),
+       [:a :c :h :j] (alg/nodes-in-path 
+                       (alg/shortest-path g4 
+                                          {:start-node :a,
+                                           :end-node :j,
+                                           :cost-fn #(uber/weight g4 %)}))
        ))       
 
