@@ -64,6 +64,7 @@
 (def no-goal (with-meta #{} {:no-goal true})) ; Used to search all possibilities
 
 (defn- find-path
+  "Work backwards from the destination to reconstruct the path"
   ([to backlinks] (find-path to backlinks ()))
   ([to ^HashMap backlinks path]
     (let [prev-edge (.get backlinks to)]
@@ -71,7 +72,9 @@
         path
         (recur (uber/src prev-edge) backlinks (cons prev-edge path))))))
 
-(defn- least-edges-path-helper [g goal? ^LinkedList queue ^HashMap backlinks ^HashMap depths node-filter edge-filter]
+(defn- least-edges-path-helper
+  "Find the path with the least number of edges"
+  [g goal? ^LinkedList queue ^HashMap backlinks ^HashMap depths node-filter edge-filter]
   (loop []
     (if-let [node (.poll queue)]
       (let [depth (.get depths node)]        
@@ -91,11 +94,35 @@
         (->AllBFSPathsFromSource backlinks depths)
         nil))))
 
+(defn- least-edges-path-seq-helper
+  "Variation that produces a seq of paths produced during the traversal"
+  [g goal? ^LinkedList queue ^HashMap backlinks ^HashMap depths node-filter edge-filter]
+  (let [stepfn 
+        (fn stepfn [] 
+          (when-let [node (.poll queue)]
+            (let [depth (.get depths node)]
+              (cons (->Path (delay (find-path node backlinks)) depth node)
+                    (lazy-seq
+                      (if (goal? node)
+                        nil
+                        (do
+                          (doseq [edge (uber/out-edges g node)
+                                  :when (edge-filter edge)]
+                            (let [dst (uber/dest edge)
+                                  inc-depth (inc depth)]
+                              (when (and (node-filter node) (not (.get backlinks dst)))
+                                (.add queue dst)
+                                (.put depths dst inc-depth)
+                                (.put backlinks dst edge))))
+                          (stepfn))))))))]
+
+    (stepfn)))
+
 (defn- least-edges-path
   "Takes a graph g, a collection of starting nodes, and a goal? predicate. Returns
 a path that gets you from one of the starting nodes to a node that satisfies the goal? predicate 
 using the fewest possible edges."
-  [g starting-nodes goal? node-filter edge-filter]
+  [g starting-nodes goal? node-filter edge-filter traverse?]
   (let [queue (LinkedList.),
         backlinks (HashMap.)
         depths (HashMap.)]
@@ -104,10 +131,14 @@ using the fewest possible edges."
       (.add queue node)
       (.put depths node 0)
       (.put backlinks node ()))
-    (least-edges-path-helper g goal? queue backlinks depths node-filter edge-filter)))
+    (if traverse?
+      (least-edges-path-seq-helper g goal? queue backlinks depths node-filter edge-filter)
+      (least-edges-path-helper g goal? queue backlinks depths node-filter edge-filter))))
 
-(defn- least-cost-path-helper [g goal? ^PriorityQueue queue ^HashMap least-costs 
-                               ^HashMap backlinks cost-fn node-filter edge-filter]
+(defn- least-cost-path-helper
+  "Find the shortest path with respect to the cost-fn applied to edges"
+  [g goal? ^PriorityQueue queue ^HashMap least-costs 
+   ^HashMap backlinks cost-fn node-filter edge-filter]
   (loop []
     (if-let [[cost-from-start-to-node node] (.poll queue)]
       (cond 
@@ -132,11 +163,43 @@ using the fewest possible edges."
         (->AllPathsFromSource backlinks least-costs)
         nil))))
 
+(defn- least-cost-path-seq-helper
+  "Variation that produces a seq of paths produced during the traversal"
+  [g goal? ^PriorityQueue queue ^HashMap least-costs 
+   ^HashMap backlinks cost-fn node-filter edge-filter]
+  (let [stepfn 
+        (fn stepfn []
+          (println "stepfn")
+          (loop []
+            (when-let [[cost-from-start-to-node node] (.poll queue)]
+              (cond 
+                (goal? node) [(->Path (delay (find-path node backlinks)) (.get least-costs node) node)]
+                (> cost-from-start-to-node (.get least-costs node)) (recur)
+                :else
+                (cons
+                  (->Path (delay (find-path node backlinks)) (.get least-costs node) node)
+                  (lazy-seq
+                    (do (doseq [edge (uber/out-edges g node)
+                                :when (edge-filter edge)
+                                :let [dst (uber/dest edge)]
+                                :when (node-filter dst)]
+                          (let [cost-from-node-to-dst (cost-fn edge),
+                                cost-from-start-to-dst (+ cost-from-start-to-node 
+                                                          cost-from-node-to-dst)
+                                least-cost-found-so-far-from-start-to-dst (.get least-costs dst)]
+                            (when (or (not least-cost-found-so-far-from-start-to-dst) 
+                                      (< cost-from-start-to-dst least-cost-found-so-far-from-start-to-dst))
+                              (.add queue [cost-from-start-to-dst dst])
+                              (.put least-costs dst cost-from-start-to-dst)
+                              (.put backlinks dst edge))))
+                     (stepfn))))))))]
+    (stepfn)))
+
 (defn- least-cost-path
   "Takes a graph g, a collection of starting nodes, a goal? predicate, and optionally a cost function
 (defaults to weight). Returns a list of edges that form a path with the least cost 
 from one of the starting nodes to a node that satisfies the goal? predicate."  
-  [g starting-nodes goal? cost-fn node-filter edge-filter]
+  [g starting-nodes goal? cost-fn node-filter edge-filter traverse?]
   (let [least-costs (HashMap.),
         backlinks (HashMap.)
         queue (PriorityQueue.)]
@@ -144,7 +207,9 @@ from one of the starting nodes to a node that satisfies the goal? predicate."
       (.put least-costs node 0)
       (.put backlinks node ())
       (.add queue [0 node]))
-    (least-cost-path-helper g goal? queue least-costs backlinks cost-fn node-filter edge-filter)))
+    (if traverse?
+      (least-cost-path-seq-helper g goal? queue least-costs backlinks cost-fn node-filter edge-filter)
+      (least-cost-path-helper g goal? queue least-costs backlinks cost-fn node-filter edge-filter))))
 
 (defn- least-cost-path-with-heuristic-helper
   "AKA A* search"
@@ -174,10 +239,39 @@ from one of the starting nodes to a node that satisfies the goal? predicate."
         (->AllPathsFromSource backlinks least-costs)
         nil))))
 
+(defn- least-cost-path-with-heuristic-seq-helper
+  "Variation that produces seq of paths traversed"
+  [g goal? ^PriorityQueue queue ^HashMap least-costs ^HashMap backlinks cost-fn heuristic-fn node-filter edge-filter]
+  (let [stepfn
+        (fn stepfn []
+          (when-let [[estimated-total-cost-through-node [cost-from-start-to-node node]] (.poll queue)]
+            (cond
+              (goal? node) [(->Path (find-path node backlinks) (.get least-costs node))]
+              (> cost-from-start-to-node (.get least-costs node)) (recur)
+              :else
+              (cons (->Path (find-path node backlinks) (.get least-costs node))
+                    (lazy-seq 
+                      (do (doseq [edge (uber/out-edges g node)
+                                  :when (edge-filter edge)
+                                  :when (node-filter (uber/dest edge))]
+                            (let [dst (uber/dest edge),
+                                  cost-from-node-to-dst (cost-fn edge),
+                                  cost-from-start-to-dst (+ cost-from-start-to-node
+                                                            cost-from-node-to-dst)
+                                  least-cost-found-so-far-from-start-to-dst (.get least-costs dst)]
+                              (when (or (not least-cost-found-so-far-from-start-to-dst) 
+                                        (< cost-from-start-to-dst least-cost-found-so-far-from-start-to-dst))
+                                (.add queue [(+ cost-from-start-to-dst (heuristic-fn dst))
+                                             [cost-from-start-to-dst dst]])
+                                (.put least-costs dst cost-from-start-to-dst)
+                                (.put backlinks dst edge))))
+                        (stepfn)))))))]
+    (stepfn)))
+        
 (defn- least-cost-path-with-heuristic
   "Heuristic function must take a single node as an input, and return
    a lower bound of the cost from that node to a goal node"
-  [g starting-nodes goal? cost-fn heuristic-fn node-filter edge-filter]
+  [g starting-nodes goal? cost-fn heuristic-fn node-filter edge-filter traverse?]
   (let [least-costs (HashMap.),
         backlinks (HashMap.)
         queue (PriorityQueue.)]
@@ -185,7 +279,9 @@ from one of the starting nodes to a node that satisfies the goal? predicate."
       (.put least-costs node 0)
       (.put backlinks node ())
       (.add queue [(heuristic-fn node) [0 node]]))
-    (least-cost-path-with-heuristic-helper g goal? queue least-costs cost-fn heuristic-fn node-filter edge-filter)))
+    (if traverse?
+      (least-cost-path-with-heuristic-seq-helper g goal? queue least-costs cost-fn heuristic-fn node-filter edge-filter)
+      (least-cost-path-with-heuristic-helper g goal? queue least-costs cost-fn heuristic-fn node-filter edge-filter))))
 
 (defn shortest-path 
   "Finds the shortest path in graph g. You must specify a start node or a collection
@@ -197,21 +293,25 @@ IAllPathsFromSource protocol, which contains all the data needed to quickly find
 the shortest path to a given destination (using IAllPathsFromSource's `path-to` 
 protocol function).
 
-   Takes a map which must contain:
-   Either :start-node (single node) or :start-nodes (collection)
+If :traverse is set to true, then the function will instead return a lazy sequence
+of the shortest paths from the start node(s) to each node in the graph in the order
+the nodes are encountered by the search process.
 
-   Map may contain the following entries:
-   Either :end-node (single node) or :end-nodes (collection) or :end-node? (predicate function) 
-   :cost-fn - A function that takes an edge as an input and returns a cost 
-             (defaults to every edge having a cost of 1)
-   :cost-attr - Alternatively, can specify an edge attribute to use as the cost
-   :heuristic-fn - A function that takes a node as an input and returns a
-             lower-bound on the distance to a goal node, used to guide the search
-             and make it more efficient.
-   :node-filter - A predicate function that takes a node and returns true or false.
-             If specified, only nodes that pass this node-filter test will be considered in the search.
-   :edge-filter - A predicate function that takes an edge and returns true or false.
-             If specified, only edges that pass this edge-filter test will be considered in the search.
+Takes a map which must contain:
+Either :start-node (single node) or :start-nodes (collection)
+
+Map may contain the following entries:
+Either :end-node (single node) or :end-nodes (collection) or :end-node? (predicate function) 
+:cost-fn - A function that takes an edge as an input and returns a cost 
+          (defaults to every edge having a cost of 1)
+:cost-attr - Alternatively, can specify an edge attribute to use as the cost
+:heuristic-fn - A function that takes a node as an input and returns a
+          lower-bound on the distance to a goal node, used to guide the search
+          and make it more efficient.
+:node-filter - A predicate function that takes a node and returns true or false.
+          If specified, only nodes that pass this node-filter test will be considered in the search.
+:edge-filter - A predicate function that takes an edge and returns true or false.
+          If specified, only edges that pass this edge-filter test will be considered in the search.
 "
   ([g search-specification]
     (assert (not (and (get search-specification :start-node)
@@ -232,6 +332,7 @@ protocol function).
           starting-nodes (if-let [start-node (:start-node search-specification)]
                            [start-node]
                            (:start-nodes search-specification))
+          traversal? (:traversal? search-specification)
           goal? (cond
                   (:end-node search-specification) #{(:end-node search-specification)}
                   (:end-nodes search-specification) (set (:end-nodes search-specification))
@@ -239,13 +340,27 @@ protocol function).
                   :else no-goal)]
       (cond
         (and (nil? cost-fn) (nil? cost-attr) (nil? heuristic-fn))
-        (least-edges-path g starting-nodes goal? node-filter edge-filter),
+        (least-edges-path g starting-nodes goal? node-filter edge-filter traversal?),
         
         heuristic-fn
         (least-cost-path-with-heuristic
-          g starting-nodes goal? (if cost-fn cost-fn (constantly 1)) heuristic-fn node-filter edge-filter),
+          g starting-nodes goal? (if cost-fn cost-fn (constantly 1)) heuristic-fn node-filter edge-filter traversal?),
         
         :else
-        (least-cost-path g starting-nodes goal? cost-fn node-filter edge-filter)))))
+        (least-cost-path g starting-nodes goal? cost-fn node-filter edge-filter traversal?)))))
+  
+(defn nodes-within-cost-range
+  "Takes a graph g and a map with a :start-node or :start-nodes, and a :min and/or :max cost"
+  [g {:keys [start-node start-nodes min max] :as spec :or {:min 0, :max java.lang.Double/POSITIVE_INFINITY}}]
+  (assert (not (and (get spec :start-node)
+                    (get spec :start-nodes)))
+          "Can't specify both :start-node and :start-nodes")
+  (assert (or min max) "Specify either :min or :max or both")
+  (as-> spec _
+    (shortest-path _)
+    (drop-while #(< (cost-of-path %) min) _)
+    (take-while #(<= (cost-of-path %) max) _)
+    (nodes-in-path _)))
+
   
   
