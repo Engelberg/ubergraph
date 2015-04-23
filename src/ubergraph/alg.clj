@@ -61,7 +61,7 @@
   ubergraph.protocols/IAllPathsFromSource
   (path-to [this dest] nil))     
 
-(def no-goal (with-meta #{} {:no-goal true})) ; Used to search all possibilities
+(def ^:private no-goal (with-meta #{} {:no-goal true})) ; Used to search all possibilities
 
 (defn- find-path
   "Work backwards from the destination to reconstruct the path"
@@ -303,7 +303,7 @@ Either :start-node (single node) or :start-nodes (collection)
 Map may contain the following entries:
 Either :end-node (single node) or :end-nodes (collection) or :end-node? (predicate function) 
 :cost-fn - A function that takes an edge as an input and returns a cost 
-          (defaults to every edge having a cost of 1)
+          (defaults to every edge having a cost of 1, i.e., breadth-first search if no cost-fn given)
 :cost-attr - Alternatively, can specify an edge attribute to use as the cost
 :heuristic-fn - A function that takes a node as an input and returns a
           lower-bound on the distance to a goal node, used to guide the search
@@ -312,6 +312,11 @@ Either :end-node (single node) or :end-nodes (collection) or :end-node? (predica
           If specified, only nodes that pass this node-filter test will be considered in the search.
 :edge-filter - A predicate function that takes an edge and returns true or false.
           If specified, only edges that pass this edge-filter test will be considered in the search.
+
+Map may contain the following additional entries if a traversal sequence is desired:
+:traverse true - Changes output to be a sequence of paths in order encountered.
+:min-cost - Filters traversal sequence, only applies if :traverse is set to true
+:max-cost - Filters traversal sequence, only applies if :traverse is set to true
 "
   ([g search-specification]
     (assert (not (and (get search-specification :start-node)
@@ -337,7 +342,14 @@ Either :end-node (single node) or :end-nodes (collection) or :end-node? (predica
                   (:end-node search-specification) #{(:end-node search-specification)}
                   (:end-nodes search-specification) (set (:end-nodes search-specification))
                   (:end-node? search-specification) (:end-node? search-specification)
-                  :else no-goal)]
+                  :else no-goal)
+          min-cost (get search-specification :min-cost 0)
+          max-cost (get search-specification :max-cost java.lang.Double/POSITIVE_INFINITY)]
+      (assert (<= min-cost max-cost) ":min-cost must be less-than-or-equal to :max-cost")
+      (assert (or (not (or (:min-cost search-specification) (:max-cost search-specification)))
+                  traversal?)
+              ":min-cost and :max-cost have no effect unless you set :traverse to true")
+             
       (cond
         (and (nil? cost-fn) (nil? cost-attr) (nil? heuristic-fn))
         (least-edges-path g starting-nodes goal? node-filter edge-filter traversal?),
@@ -348,20 +360,4 @@ Either :end-node (single node) or :end-nodes (collection) or :end-node? (predica
         
         :else
         (least-cost-path g starting-nodes goal? cost-fn node-filter edge-filter traversal?)))))
-  
-(defn nodes-within-cost-range
-  "Takes a graph g and a search specification map (see shortest-path) with a :min and/or :max cost (inclusive)"
-  [g {:keys [start-node start-nodes min max] :as spec :or {:min 0, :max java.lang.Double/POSITIVE_INFINITY}}]
-  (assert (not (and (get spec :start-node)
-                    (get spec :start-nodes)))
-          "Can't specify both :start-node and :start-nodes")
-  (assert (or min max) "Specify either :min or :max or both")
-  (assert (<= min max) ":min must be less than or equal to :max")
-  (->>
-    (shortest-path g (assoc spec :traverse true))
-    (drop-while #(< (cost-of-path %) min))
-    (take-while #(<= (cost-of-path %) max))
-    (map end-of-path)))
-
-  
   
