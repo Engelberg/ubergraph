@@ -332,7 +332,7 @@ Either :end-node (single node) or :end-nodes (collection) or :end-node? (predica
           starting-nodes (if-let [start-node (:start-node search-specification)]
                            [start-node]
                            (:start-nodes search-specification))
-          traversal? (:traversal? search-specification)
+          traversal? (:traverse search-specification)
           goal? (cond
                   (:end-node search-specification) #{(:end-node search-specification)}
                   (:end-nodes search-specification) (set (:end-nodes search-specification))
@@ -350,17 +350,18 @@ Either :end-node (single node) or :end-nodes (collection) or :end-node? (predica
         (least-cost-path g starting-nodes goal? cost-fn node-filter edge-filter traversal?)))))
   
 (defn nodes-within-cost-range
-  "Takes a graph g and a map with a :start-node or :start-nodes, and a :min and/or :max cost"
+  "Takes a graph g and a search specification map (see shortest-path) with a :min and/or :max cost (inclusive)"
   [g {:keys [start-node start-nodes min max] :as spec :or {:min 0, :max java.lang.Double/POSITIVE_INFINITY}}]
   (assert (not (and (get spec :start-node)
                     (get spec :start-nodes)))
           "Can't specify both :start-node and :start-nodes")
   (assert (or min max) "Specify either :min or :max or both")
-  (as-> spec _
-    (shortest-path _)
-    (drop-while #(< (cost-of-path %) min) _)
-    (take-while #(<= (cost-of-path %) max) _)
-    (nodes-in-path _)))
+  (assert (<= min max) ":min must be less than or equal to :max")
+  (->>
+    (shortest-path g (assoc spec :traverse true))
+    (drop-while #(< (cost-of-path %) min))
+    (take-while #(<= (cost-of-path %) max))
+    (map end-of-path)))
 
   
   
