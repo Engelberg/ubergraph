@@ -50,14 +50,17 @@
   (edges-in-path [path] "A list of edges comprising the path" )
   (nodes-in-path [path] "A list of nodes comprising the path" )
   (cost-of-path [path] "Returns the cost of the path with respect to the property that was minimized
-in the search that produced this path." ))
+in the search that produced this path." )
+  (start-of-path [path] "Returns the first node in the path")
+  (end-of-path [path] "Returns the last node in the path"))
 
 (defprotocol IAllPathsFromSource "All the things you can do to an object that knows how to produce 
 paths on demand from a given source."
   (edges-in-path-to [path dest] "A list of all edges comprising the path to dest" )
   (nodes-in-path-to [path dest] "A list of all nodes comprising the path to dest" )
   (cost-of-path-to [path dest] "Cost of the path to dest with respect to the property that was minimized
-in the search that produced this path." ))
+in the search that produced this path." )
+  (start-of-path-to [path dest] "First node in the path to dest"))
 
 (defprotocol IAllPaths "All the things you can do to an object that knows how to produce paths
 on demand between any pair of nodes."
