@@ -217,7 +217,7 @@ from one of the starting nodes to a node that satisfies the goal? predicate."
   (loop []
     (if-let [[estimated-total-cost-through-node [cost-from-start-to-node node]] (.poll queue)]
       (cond
-        (goal? node) (->Path (find-path node backlinks) (.get least-costs node))
+        (goal? node) (->Path (delay (find-path node backlinks)) (.get least-costs node) node)
         (> cost-from-start-to-node (.get least-costs node)) (recur)
         :else
         (do (doseq [edge (uber/out-edges g node)
@@ -246,7 +246,7 @@ from one of the starting nodes to a node that satisfies the goal? predicate."
         (fn stepfn []
           (when-let [[estimated-total-cost-through-node [cost-from-start-to-node node]] (.poll queue)]
             (cond
-              (goal? node) [(->Path (find-path node backlinks) (.get least-costs node))]
+              (goal? node) [(->Path (delay (find-path node backlinks)) (.get least-costs node) node)]
               (> cost-from-start-to-node (.get least-costs node)) (recur)
               :else
               (cons (->Path (find-path node backlinks) (.get least-costs node))
@@ -280,8 +280,8 @@ from one of the starting nodes to a node that satisfies the goal? predicate."
       (.put backlinks node ())
       (.add queue [(heuristic-fn node) [0 node]]))
     (if traverse?
-      (least-cost-path-with-heuristic-seq-helper g goal? queue least-costs cost-fn heuristic-fn node-filter edge-filter)
-      (least-cost-path-with-heuristic-helper g goal? queue least-costs cost-fn heuristic-fn node-filter edge-filter))))
+      (least-cost-path-with-heuristic-seq-helper g goal? queue least-costs backlinks cost-fn heuristic-fn node-filter edge-filter)
+      (least-cost-path-with-heuristic-helper g goal? queue least-costs backlinks cost-fn heuristic-fn node-filter edge-filter))))
 
 (defn shortest-path 
   "Finds the shortest path in graph g. You must specify a start node or a collection

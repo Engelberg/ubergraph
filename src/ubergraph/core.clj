@@ -157,9 +157,9 @@
   (attr [g node-or-edge k] 
     (get-in g [:attrs (resolve-node-or-edge g node-or-edge) k]))
   (attr [g n1 n2 k] (attr g (get-edge g n1 n2) k))
-  (attrs [g node-or-edge] 
+  (la/attrs [g node-or-edge] 
     (get-in g [:attrs (resolve-node-or-edge g node-or-edge)] {}))
-  (attrs [g n1 n2] (attrs g (get-edge g n1 n2)))
+  (la/attrs [g n1 n2] (la/attrs g (get-edge g n1 n2)))
   
   up/UndirectedGraph
   (other-direction [g edge]
@@ -253,7 +253,6 @@
   (directed-edge? [e] false)
   (mirror-edge? [e] false))
               
-
 
 (defn edge? "Tests whether o is an edge object"
   [o] (or (instance? Edge o) (instance? UndirectedEdge o)))
@@ -404,8 +403,8 @@ an edge object."
 but this function also passes nodes through unchanged, and extracts the edge id if
 it is an edge."
   [g node-or-edge]
-  (cond (has-node? g node-or-edge)
-        node-or-edge
+  (cond (edge? node-or-edge) (:id node-or-edge) 
+        (has-node? g node-or-edge) node-or-edge
         :else
         (try (:id (edge-description->edge g node-or-edge))
           (catch IllegalArgumentException e
