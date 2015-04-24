@@ -297,7 +297,7 @@ If :traverse is set to true, then the function will instead return a lazy sequen
 of the shortest paths from the start node(s) to each node in the graph in the order
 the nodes are encountered by the search process.
 
-Takes a map which must contain:
+Takes a search-specification map which must contain:
 Either :start-node (single node) or :start-nodes (collection)
 
 Map may contain the following entries:
@@ -317,7 +317,13 @@ Map may contain the following additional entries if a traversal sequence is desi
 :traverse true - Changes output to be a sequence of paths in order encountered.
 :min-cost - Filters traversal sequence, only applies if :traverse is set to true
 :max-cost - Filters traversal sequence, only applies if :traverse is set to true
+
+shortest-path has specific arities for the two most common combinations:
+(shortest-path g start-node end-node)
+(shortest-path g start-node end-node cost-attr)
 "
+  ([g start-node end-node] (shortest-path g {:start-node start-node, :end-node end-node}))
+  ([g start-node end-node cost-attr] (shortest-path g {:start-node start-node, :end-node end-node, :cost-attr cost-attr}))
   ([g search-specification]
     (assert (not (and (get search-specification :start-node)
                       (get search-specification :start-nodes)))
