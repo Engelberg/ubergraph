@@ -56,8 +56,13 @@ in the search that produced this path." )
 
 (defprotocol IAllPathsFromSource "An object that knows how to produce paths on demand from a given source,
 using path-to"
-  (path-to [path dest] "The shortest path to dest"))
+  (path-to [paths dest] "The shortest path to dest"))
 
 (defprotocol IAllPaths "An object that knows how to produce paths on demand between any pair of nodes,
 using path-between"
-  (path-between [path src dest] "The shortest path between src and dest" ))
+  (path-between [paths src dest] "The shortest path between src and dest" ))
+
+; Recognizing Ubergraphs
+
+(defprotocol IUbergraph "Is it an Ubergraph?"
+  (ubergraph? [g]))

@@ -58,6 +58,8 @@
    ; MixedDirectionGraph protocol
    add-directed-edges*
    add-undirected-edges*
+   ; Ubergraph recognition protocol
+   ubergraph?
    ]
    )
    
@@ -251,7 +253,9 @@
   up/MixedDirectionEdgeTests
   (undirected-edge? [e] false)
   (directed-edge? [e] false)
-  (mirror-edge? [e] false))
+  (mirror-edge? [e] false)
+  up/IUbergraph
+  (ubergraph? [g] false))
               
 
 (defn edge? "Tests whether o is an edge object"
@@ -563,7 +567,9 @@ as Loom's build-graph."
     :else "Digraph"))
 
 (defn count-nodes "Counts how many nodes are in g" [g]
-  (count (:node-map g)))
+  (if (ubergraph? g)
+    (count (:node-map g))
+    (count (nodes g))))
 
 (defn count-edges "Counts how many edges are in g.
 Undirected edges are counted twice, once for each direction."

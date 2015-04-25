@@ -1,7 +1,8 @@
 (ns ubergraph.alg
   (:require [ubergraph.core :as uber]
             [ubergraph.protocols :as prots]
-            [potemkin :refer [import-vars]])
+            [potemkin :refer [import-vars]]
+            loom.alg)
   (:import java.util.PriorityQueue java.util.HashMap java.util.LinkedList java.util.HashSet))
 
 ;; Various searches for shortest paths
@@ -18,7 +19,30 @@
    end-of-path
    path-to
 ;   path-between  Reserved for future use in all-paths algorithms
-   ])
+   ]
+  [loom.alg
+   ; Curated loom algorithms
+   connected-components
+   connected?
+   pre-traverse
+   pre-span
+   post-traverse
+   topsort
+   bf-span
+   dag?
+   scc
+   strongly-connected?
+   connect
+   bipartite-color
+   bipartite?
+   bipartite-sets
+;   The following functions are in snapshot, but not in Loom 0.5.0   
+;   coloring?
+;   greedy-coloring
+;   degeneracy-ordering
+;   maximal-cliques
+   ]
+  )
 
 (declare find-path)
 
@@ -367,3 +391,151 @@ shortest-path has specific arities for the two most common combinations:
         :else
         (least-cost-path g starting-nodes goal? cost-fn node-filter edge-filter traversal?)))))
   
+
+;; Algorithms similar to those in Loom, adapted for Ubergraphs
+
+(defn loners
+  "Return nodes with no connections to other nodes (i.e., isolated nodes)"
+  [g]
+  (for [node (uber/nodes g)
+        :when (and (zero? (uber/in-degree g node))
+                   (zero? (uber/out-degree g node)))]
+    node))
+
+(defn distinct-edges
+  "Distinct edges of g."
+  [g]
+  (if (uber/ubergraph? g)
+    (for [edge (uber/edges g)
+          :when (not (uber/mirror-edge? edge))]
+      edge)
+    (loom.alg/distinct-edges g)))
+
+(defn longest-shortest-path
+  "The longest shortest-path starting from start"
+  [g start]
+  (last (shortest-path g {:start-node start,
+                          :traverse true})))
+
+;; Bellman-Ford, adapted from Loom
+
+(defn- can-relax-edge?
+  "Test for whether we can improve the shortest path to v found so far
+   by going through u."
+  [[u v :as edge] weight costs]
+  (let [vd (get costs v)
+        ud (get costs u)
+        sum (+ ud weight)]
+    (> vd sum)))
+
+(defn- relax-edge
+  "If there's a shorter path from s to v via u,
+    update our map of estimated path costs and
+   map of paths from source to vertex v"
+  [[u v :as edge] weight [costs backlinks :as estimates]]
+  (let [ud (get costs u)
+        sum (+ ud weight)]
+    (if (can-relax-edge? edge weight costs)
+      [(assoc costs v sum) (assoc backlinks v edge)]
+      estimates)))
+
+(defn- relax-edges
+  "Performs edge relaxation on all edges in weighted directed graph"
+  [g start estimates]
+  (->> (uber/edges g)
+       (reduce (fn [estimates edge]
+                 (relax-edge edge (uber/weight g edge) estimates))
+               estimates)))
+
+(defn- init-estimates
+  "Initializes path cost estimates and paths from source to all vertices,
+   for Bellman-Ford algorithm"
+  [graph start]
+  (let [nodes (for [node (uber/nodes graph) :when (not= node start)] node)
+        path-costs {start 0}
+        backlinks {start ()}
+        infinities (repeat Double/POSITIVE_INFINITY)
+        nils (repeat ())
+        init-costs (interleave nodes infinities)
+        init-backlinks (interleave nodes nils)]
+    [(apply assoc path-costs init-costs)
+     (apply assoc backlinks init-backlinks)]))
+
+(defn bellman-ford
+  "Given a weighted, directed graph G = (V, E) with source start,
+   the Bellman-Ford algorithm produces an implementation of the
+   IAllPathsFromSource protocol if no negative-weight cycle that is 
+   reachable from the source exits, and false otherwise, indicating 
+   that no solution exists.
+
+Takes a search-specification map which must contain:
+Either :start-node (single node) or :start-nodes (collection)
+
+Map may contain the following entries:
+:cost-fn - A function that takes an edge as an input and returns a cost 
+          (defaults to every edge having a cost of 1, i.e., breadth-first search if no cost-fn given)
+:cost-attr - Alternatively, can specify an edge attribute to use as the cost
+:node-filter - A predicate function that takes a node and returns true or false.
+          If specified, only nodes that pass this node-filter test will be considered in the search.
+:edge-filter - A predicate function that takes an edge and returns true or false.
+          If specified, only edges that pass this edge-filter test will be considered in the search.
+"
+  [g start]
+  (let [initial-estimates (init-estimates g start)
+        ;;relax-edges is calculated for all edges V-1 times
+        [costs backlinks] (reduce (fn [estimates _]
+                                    (relax-edges g start estimates))
+                                  initial-estimates
+                                  (-> g uber/count-nodes dec range))
+        edges (uber/edges g)]
+    (if (some
+         (fn [edge]
+           (can-relax-edge? edge (uber/weight g edge) costs))
+         edges)
+      false
+      (let [backlinks (reduce (fn [links node] (if (= Double/POSITIVE_INFINITY (get costs node))
+                                                 (dissoc links node)
+                                                 links))
+                              backlinks
+                              (uber/nodes g))]
+        (->AllPathsFromSource backlinks costs)))))
+
+(defn- bellman-ford-transform
+  "Helper method for Johnson's algorithm. Uses Bellman-Ford to remove negative weights."
+  [wg]
+  (let [q (first (drop-while (partial uber/has-node? wg) (repeatedly gensym)))
+        es (for [v (uber/nodes wg)] [q v 0])
+        bf-results (bellman-ford (uber/add-edges* wg es) q)]
+    (if bf-results
+      (let [all-paths-from-q bf-results
+            dist-q (fn [v] (cost-of-path (path-to all-paths-from-q v)))
+            new-es (map (juxt uber/src uber/dest 
+                              (fn [e]
+                                (+ (uber/weight wg e) 
+                                   (- (dist-q u) (dist-q v)))))
+                        (graph/edges wg))]
+        (graph/add-edges* wg new-es))
+      false)))
+
+(defn johnson
+  "Finds all-pairs shortest paths using Bellman-Ford to remove any negative edges before
+  using Dijkstra's algorithm to find the shortest paths from each vertex to every other.
+  This algorithm is efficient for sparse graphs.
+  If the graph is unweighted, a default weight of 1 will be used. Note that it is more efficient
+  to use breadth-first spans for a graph with a uniform edge weight rather than Dijkstra's algorithm.
+  Most callers should use shortest-paths and allow the most efficient implementation be selected
+  for the graph."
+  [g]
+  (let [g (if (and (weighted? g) (some (partial > 0) (map (graph/weight g) (graph/edges g))))
+            (bellman-ford-transform g)
+            g)]
+    (if (false? g)
+      false
+      (let [dist (if (weighted? g)
+                   (weight g)
+                   (fn [u v] (if (graph/has-edge? g u v) 1 nil)))]
+        (reduce (fn [acc node]
+                  (assoc acc node (gen/dijkstra-span (successors g) dist node)))
+                {}
+                (nodes g))))))
+
