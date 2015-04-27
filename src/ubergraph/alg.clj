@@ -2,6 +2,7 @@
   (:require [ubergraph.core :as uber]
             [ubergraph.protocols :as prots]
             [potemkin :refer [import-vars]]
+            [clojure.core.reducers :as r]
             loom.alg)
   (:import java.util.PriorityQueue java.util.HashMap java.util.LinkedList java.util.HashSet))
 
@@ -120,25 +121,27 @@
 
 (defn- least-edges-path-seq-helper
   "Variation that produces a seq of paths produced during the traversal"
-  [g goal? ^LinkedList queue ^HashMap backlinks ^HashMap depths node-filter edge-filter]
+  [g goal? ^LinkedList queue ^HashMap backlinks ^HashMap depths node-filter edge-filter min-cost max-cost]
   (let [stepfn 
         (fn stepfn [] 
           (when-let [node (.poll queue)]
             (let [depth (.get depths node)]
-              (cons (->Path (delay (find-path node backlinks)) depth node)
-                    (lazy-seq
-                      (if (goal? node)
-                        nil
-                        (do
-                          (doseq [edge (uber/out-edges g node)
-                                  :when (edge-filter edge)]
-                            (let [dst (uber/dest edge)
-                                  inc-depth (inc depth)]
-                              (when (and (node-filter node) (not (.get backlinks dst)))
-                                (.add queue dst)
-                                (.put depths dst inc-depth)
-                                (.put backlinks dst edge))))
-                          (stepfn))))))))]
+              (if (<= min-cost depth max-cost)
+                (cons (->Path (delay (find-path node backlinks)) depth node)
+                      (lazy-seq
+                        (if (goal? node)
+                          nil
+                          (do
+                            (doseq [edge (uber/out-edges g node)
+                                    :when (edge-filter edge)]
+                              (let [dst (uber/dest edge)
+                                    inc-depth (inc depth)]
+                                (when (and (node-filter node) (not (.get backlinks dst)))
+                                  (.add queue dst)
+                                  (.put depths dst inc-depth)
+                                  (.put backlinks dst edge))))
+                            (stepfn)))))
+                (recur)))))]
 
     (stepfn)))
 
@@ -146,7 +149,7 @@
   "Takes a graph g, a collection of starting nodes, and a goal? predicate. Returns
 a path that gets you from one of the starting nodes to a node that satisfies the goal? predicate 
 using the fewest possible edges."
-  [g starting-nodes goal? node-filter edge-filter traverse?]
+  [g starting-nodes goal? node-filter edge-filter traverse? min-cost max-cost]
   (let [queue (LinkedList.),
         backlinks (HashMap.)
         depths (HashMap.)]
@@ -156,7 +159,7 @@ using the fewest possible edges."
       (.put depths node 0)
       (.put backlinks node ()))
     (if traverse?
-      (least-edges-path-seq-helper g goal? queue backlinks depths node-filter edge-filter)
+      (least-edges-path-seq-helper g goal? queue backlinks depths node-filter edge-filter min-cost max-cost)
       (least-edges-path-helper g goal? queue backlinks depths node-filter edge-filter))))
 
 (defn- least-cost-path-helper
@@ -190,13 +193,17 @@ using the fewest possible edges."
 (defn- least-cost-path-seq-helper
   "Variation that produces a seq of paths produced during the traversal"
   [g goal? ^PriorityQueue queue ^HashMap least-costs 
-   ^HashMap backlinks cost-fn node-filter edge-filter]
+   ^HashMap backlinks cost-fn node-filter edge-filter min-cost max-cost]
   (let [stepfn 
         (fn stepfn []
           (println "stepfn")
           (loop []
             (when-let [[cost-from-start-to-node node] (.poll queue)]
               (cond 
+                (or (< cost-from-start-to-node min-cost)
+                    (< max-cost cost-from-start-to-node))
+                (recur),
+                
                 (goal? node) [(->Path (delay (find-path node backlinks)) (.get least-costs node) node)]
                 (> cost-from-start-to-node (.get least-costs node)) (recur)
                 :else
@@ -223,7 +230,7 @@ using the fewest possible edges."
   "Takes a graph g, a collection of starting nodes, a goal? predicate, and optionally a cost function
 (defaults to weight). Returns a list of edges that form a path with the least cost 
 from one of the starting nodes to a node that satisfies the goal? predicate."  
-  [g starting-nodes goal? cost-fn node-filter edge-filter traverse?]
+  [g starting-nodes goal? cost-fn node-filter edge-filter traverse? min-cost max-cost]
   (let [least-costs (HashMap.),
         backlinks (HashMap.)
         queue (PriorityQueue.)]
@@ -232,7 +239,7 @@ from one of the starting nodes to a node that satisfies the goal? predicate."
       (.put backlinks node ())
       (.add queue [0 node]))
     (if traverse?
-      (least-cost-path-seq-helper g goal? queue least-costs backlinks cost-fn node-filter edge-filter)
+      (least-cost-path-seq-helper g goal? queue least-costs backlinks cost-fn node-filter edge-filter min-cost max-cost)
       (least-cost-path-helper g goal? queue least-costs backlinks cost-fn node-filter edge-filter))))
 
 (defn- least-cost-path-with-heuristic-helper
@@ -265,11 +272,15 @@ from one of the starting nodes to a node that satisfies the goal? predicate."
 
 (defn- least-cost-path-with-heuristic-seq-helper
   "Variation that produces seq of paths traversed"
-  [g goal? ^PriorityQueue queue ^HashMap least-costs ^HashMap backlinks cost-fn heuristic-fn node-filter edge-filter]
+  [g goal? ^PriorityQueue queue ^HashMap least-costs ^HashMap backlinks cost-fn heuristic-fn node-filter edge-filter min-cost max-cost]
   (let [stepfn
         (fn stepfn []
           (when-let [[estimated-total-cost-through-node [cost-from-start-to-node node]] (.poll queue)]
             (cond
+              (or (< cost-from-start-to-node min-cost)
+                  (< max-cost cost-from-start-to-node))
+              (recur),
+
               (goal? node) [(->Path (delay (find-path node backlinks)) (.get least-costs node) node)]
               (> cost-from-start-to-node (.get least-costs node)) (recur)
               :else
@@ -295,7 +306,7 @@ from one of the starting nodes to a node that satisfies the goal? predicate."
 (defn- least-cost-path-with-heuristic
   "Heuristic function must take a single node as an input, and return
    a lower bound of the cost from that node to a goal node"
-  [g starting-nodes goal? cost-fn heuristic-fn node-filter edge-filter traverse?]
+  [g starting-nodes goal? cost-fn heuristic-fn node-filter edge-filter traverse? min-cost max-cost]
   (let [least-costs (HashMap.),
         backlinks (HashMap.)
         queue (PriorityQueue.)]
@@ -304,8 +315,10 @@ from one of the starting nodes to a node that satisfies the goal? predicate."
       (.put backlinks node ())
       (.add queue [(heuristic-fn node) [0 node]]))
     (if traverse?
-      (least-cost-path-with-heuristic-seq-helper g goal? queue least-costs backlinks cost-fn heuristic-fn node-filter edge-filter)
+      (least-cost-path-with-heuristic-seq-helper g goal? queue least-costs backlinks cost-fn heuristic-fn node-filter edge-filter min-cost max-cost)
       (least-cost-path-with-heuristic-helper g goal? queue least-costs backlinks cost-fn heuristic-fn node-filter edge-filter))))
+
+(declare bellman-ford)
 
 (defn shortest-path 
   "Finds the shortest path in graph g. You must specify a start node or a collection
@@ -342,6 +355,7 @@ Map may contain the following additional entries if a traversal sequence is desi
 :min-cost - Filters traversal sequence, only applies if :traverse is set to true
 :max-cost - Filters traversal sequence, only applies if :traverse is set to true
 
+
 shortest-path has specific arities for the two most common combinations:
 (shortest-path g start-node end-node)
 (shortest-path g start-node end-node cost-attr)
@@ -362,6 +376,11 @@ shortest-path has specific arities for the two most common combinations:
           cost-fn (if cost-attr
                     #(uber/attr g % cost-attr)
                     (get search-specification :cost-fn))
+          cost-fn (fn [edge]
+                    (let [cost (cost-fn edge)]
+                      (if (neg? cost)
+                        (throw (IllegalStateException. "Negative edge, retry with Bellman-Ford alg"))
+                        cost)))
           heuristic-fn (get search-specification :heuristic-fn)
           node-filter (get search-specification :node-filter (constantly true))
           edge-filter (get search-specification :edge-filter (constantly true))
@@ -374,23 +393,25 @@ shortest-path has specific arities for the two most common combinations:
                   (:end-nodes search-specification) (set (:end-nodes search-specification))
                   (:end-node? search-specification) (:end-node? search-specification)
                   :else no-goal)
-          min-cost (get search-specification :min-cost 0)
+          min-cost (get search-specification :min-cost java.lang.Double/NEGATIVE_INFINITY)
           max-cost (get search-specification :max-cost java.lang.Double/POSITIVE_INFINITY)]
       (assert (<= min-cost max-cost) ":min-cost must be less-than-or-equal to :max-cost")
       (assert (or (not (or (:min-cost search-specification) (:max-cost search-specification)))
                   traversal?)
               ":min-cost and :max-cost have no effect unless you set :traverse to true")
-             
-      (cond
-        (and (nil? cost-fn) (nil? cost-attr) (nil? heuristic-fn))
-        (least-edges-path g starting-nodes goal? node-filter edge-filter traversal?),
+
+      (try
+        (cond
+          (and (nil? cost-fn) (nil? cost-attr) (nil? heuristic-fn))
+          (least-edges-path g starting-nodes goal? node-filter edge-filter traversal? min-cost max-cost),
         
-        heuristic-fn
-        (least-cost-path-with-heuristic
-          g starting-nodes goal? (if cost-fn cost-fn (constantly 1)) heuristic-fn node-filter edge-filter traversal?),
+          heuristic-fn
+          (least-cost-path-with-heuristic
+            g starting-nodes goal? (if cost-fn cost-fn (constantly 1)) heuristic-fn node-filter edge-filter traversal? min-cost max-cost),
         
-        :else
-        (least-cost-path g starting-nodes goal? cost-fn node-filter edge-filter traversal?)))))
+          :else
+          (least-cost-path g starting-nodes goal? cost-fn node-filter edge-filter traversal? min-cost max-cost))
+        (catch IllegalStateException e (bellman-ford search-specification))))))
   
 
 ;; Algorithms similar to those in Loom, adapted for Ubergraphs
@@ -466,17 +487,18 @@ shortest-path has specific arities for the two most common combinations:
     [(apply assoc path-costs init-costs)
      (apply assoc backlinks init-backlinks)]))
 
-(defn bellman-ford
+(defn- bellman-ford
   "Given a weighted, directed graph G = (V, E) with source start,
-   the Bellman-Ford algorithm produces an implementation of the
-   IAllPathsFromSource protocol if no negative-weight cycle that is 
-   reachable from the source exits, and false otherwise, indicating 
-   that no solution exists.
+the Bellman-Ford algorithm produces an implementation of the
+IAllPathsFromSource protocol if no negative-weight cycle that is 
+reachable from the source exits, and false otherwise, indicating 
+that no solution exists.
 
 Takes a search-specification map which must contain:
 Either :start-node (single node) or :start-nodes (collection)
 
 Map may contain the following entries:
+Either :end-node (single node) or :end-nodes (collection) or :end-node? (predicate function) 
 :cost-fn - A function that takes an edge as an input and returns a cost 
           (defaults to weight, or 1 if no weight is present)
 :cost-attr - Alternatively, can specify an edge attribute to use as the cost
@@ -484,6 +506,11 @@ Map may contain the following entries:
           If specified, only nodes that pass this node-filter test will be considered in the search.
 :edge-filter - A predicate function that takes an edge and returns true or false.
           If specified, only edges that pass this edge-filter test will be considered in the search.
+
+Map may contain the following additional entries if a traversal sequence is desired:
+:traverse true - Changes output to be a sequence of paths in order encountered.
+:min-cost - Filters traversal sequence, only applies if :traverse is set to true
+:max-cost - Filters traversal sequence, only applies if :traverse is set to true
 
 bellman-ford has specific arity for the most common combination:
 (bellman-ford g start-node cost-attr)
@@ -494,6 +521,8 @@ bellman-ford has specific arity for the most common combination:
     (assert (not (and (get search-specification :start-node)
                       (get search-specification :start-nodes)))
             "Can't specify both :start-node and :start-nodes")
+    (assert (<= 2 (count (filter nil? (map search-specification [:end-node :end-nodes :end-node?]))))
+            "Pick only one of :end-node, :end-nodes, or :end-node?")
     (assert (not (and (get search-specification :cost-fn) 
                       (get search-specification :cost-attr))) 
             "Can't specify both a :cost-fn and a :cost-attr")
@@ -509,7 +538,21 @@ bellman-ford has specific arity for the most common combination:
           starting-nodes (filter #(and (uber/has-node? g %)
                                        (node-filter %))
                                  starting-nodes)
-          valid-nodes (filter node-filter (uber/nodes g))]
+          valid-nodes (filter node-filter (uber/nodes g))
+          end-nodes (cond
+                      (:end-node search-specification) [(:end-node search-specification)]
+                      (:end-nodes search-specification) (:end-nodes search-specification)
+                      (:end-node? search-specification) (filter (:end-node? search-specification) valid-nodes)
+                      :else nil)
+          goal? (set end-nodes)          
+          traversal? (:traverse search-specification)
+          min-cost (get search-specification :min-cost java.lang.Double/NEGATIVE_INFINITY)
+          max-cost (get search-specification :max-cost java.lang.Double/POSITIVE_INFINITY)]
+      (assert (<= min-cost max-cost) ":min-cost must be less-than-or-equal to :max-cost")
+      (assert (or (not (or (:min-cost search-specification) (:max-cost search-specification)))
+                  traversal?)
+              ":min-cost and :max-cost have no effect unless you set :traverse to true")
+
       (when (seq starting-nodes)
         (let [initial-estimates (init-estimates g starting-nodes node-filter)
               edges (for [e (uber/edges g) :when (and (edge-filter e)
@@ -529,8 +572,22 @@ bellman-ford has specific arity for the most common combination:
                                                        (dissoc links node)
                                                        links))
                                     backlinks
-                                    valid-nodes)]
-              (->AllPathsFromSource backlinks costs))))))))
+                                    valid-nodes)
+                  all-paths-from-source (->AllPathsFromSource backlinks costs)]
+              (if traversal?
+                (if (or (:min-cost search-specification)
+                        (:max-cost search-specification))
+                  (->> (vec valid-nodes)
+                    (r/map #(path-to all-paths-from-source %))
+                    (r/filter #(<= min-cost (cost-of-path %) max-cost))
+                    r/foldcat
+                    sort)
+                  all-paths-from-source)
+                (->> (vec end-nodes)
+                  (r/map #(path-to all-paths-from-source %))
+                  r/foldcat
+                  (apply min-key cost-of-path))))))))))
+                
   
 ;(defn- bellman-ford-transform
 ;  "Helper method for Johnson's algorithm. Uses Bellman-Ford to remove negative weights."
