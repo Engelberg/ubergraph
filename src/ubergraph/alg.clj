@@ -574,57 +574,21 @@ bellman-ford has specific arity for the most common combination:
                                     backlinks
                                     valid-nodes)
                   all-paths-from-source (->AllPathsFromSource backlinks costs)]
-              (if traversal?
-                (if (or (:min-cost search-specification)
-                        (:max-cost search-specification))
-                  (->> (vec valid-nodes)
-                    (r/map #(path-to all-paths-from-source %))
-                    (r/filter #(<= min-cost (cost-of-path %) max-cost))
-                    r/foldcat
-                    sort)
-                  all-paths-from-source)
+              (cond
+                traversal?
+                (->> (vec valid-nodes)
+                  (r/map #(path-to all-paths-from-source %))
+                  (r/filter #(<= min-cost (cost-of-path %) max-cost))
+                  r/foldcat
+                  sort),
+                
+                end-nodes
                 (->> (vec end-nodes)
                   (r/map #(path-to all-paths-from-source %))
                   r/foldcat
-                  (apply min-key cost-of-path))))))))))
+                  (apply min-key cost-of-path))
                 
-  
-;(defn- bellman-ford-transform
-;  "Helper method for Johnson's algorithm. Uses Bellman-Ford to remove negative weights."
-;  [wg]
-;  (let [q (first (drop-while (partial uber/has-node? wg) (repeatedly gensym)))
-;        es (for [v (uber/nodes wg)] [q v 0])
-;        bf-results (bellman-ford (uber/add-edges* wg es) q)]
-;    (if bf-results
-;      (let [all-paths-from-q bf-results
-;            dist-q (fn [v] (cost-of-path (path-to all-paths-from-q v)))
-;            new-es (map (juxt uber/src uber/dest 
-;                              (fn [e]
-;                                (+ (uber/weight wg e) 
-;                                   (- (dist-q u) (dist-q v)))))
-;                        (graph/edges wg))]
-;        (graph/add-edges* wg new-es))
-;      false)))
-;
-;(defn johnson
-;  "Finds all-pairs shortest paths using Bellman-Ford to remove any negative edges before
-;  using Dijkstra's algorithm to find the shortest paths from each vertex to every other.
-;  This algorithm is efficient for sparse graphs.
-;  If the graph is unweighted, a default weight of 1 will be used. Note that it is more efficient
-;  to use breadth-first spans for a graph with a uniform edge weight rather than Dijkstra's algorithm.
-;  Most callers should use shortest-paths and allow the most efficient implementation be selected
-;  for the graph."
-;  [g]
-;  (let [g (if (and (weighted? g) (some (partial > 0) (map (graph/weight g) (graph/edges g))))
-;            (bellman-ford-transform g)
-;            g)]
-;    (if (false? g)
-;      false
-;      (let [dist (if (weighted? g)
-;                   (weight g)
-;                   (fn [u v] (if (graph/has-edge? g u v) 1 nil)))]
-;        (reduce (fn [acc node]
-;                  (assoc acc node (gen/dijkstra-span (successors g) dist node)))
-;                {}
-;                (nodes g))))))
-;
+                :else
+                all-paths-from-source))))))))
+                
+ 
