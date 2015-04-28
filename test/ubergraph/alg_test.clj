@@ -1,7 +1,8 @@
 (ns ubergraph.alg-test
   (:use clojure.test)
   (:require [ubergraph.alg :as alg]
-            [ubergraph.core :as uber]            
+            [ubergraph.core :as uber]
+            [ubergraph.viz :as viz]            
             [loom.graph :as l]
             [loom.alg :as la]))
 
@@ -126,5 +127,74 @@
     (dotimes [i 50]
       (random-word-test wg words))))
     
+
+
+(def airports
+  (-> (uber/multigraph        
+        [:Artemis :Balela {:color :blue, :airline :CheapAir, :cost 200, :distance 40}]
+        [:Artemis :Balela {:color :green, :airline :ThriftyLines, :cost 167, :distance 40}]
+        [:Artemis :Coulton {:color :green, :airline :ThriftyLines, :cost 235, :distance 120}]
+        [:Artemis :Dentana {:color :blue, :airline :CheapAir, :cost 130, :distance 160}]
+        [:Balela :Coulton {:color :green, :airline :ThriftyLines, :cost 142, :distance 70}]
+        [:Balela :Egglesberg {:color :blue, :airline :CheapAir, :cost 350, :distance 50}])
+    (uber/add-directed-edges 
+      [:Dentana :Egglesberg {:color :red, :airline :AirLux, :cost 80, :distance 50}]
+      [:Egglesberg :Coulton {:color :red, :airline :AirLux, :cost 80, :distance 30}]
+      [:Coulton :Dentana {:color :red, :airline :AirLux, :cost 80, :distance 65}])
+    (uber/add-attr :Artemis :population 3000)
+    (uber/add-attr :Balela :population 2000)
+    (uber/add-attr :Coulton :population 4000)
+    (uber/add-attr :Dentana :population 1000)
+    (uber/add-attr :Egglesberg :population 5000)))
+
+(uber/pprint airports)
+
+; What is the trip with the fewest hops from Artemis to Egglesberg?
+(alg/shortest-path airports {:start-node :Artemis, :end-node :Egglesberg})
+(alg/shortest-path airports :Artemis :Egglesberg)
+
+; What is the trip that is the shortest distance from Coulton to Egglesberg?
+(alg/shortest-path airports {:start-node :Coulton, :end-node :Egglesberg, :cost-attr :distance})
+(alg/shortest-path airports :Coulton :Egglesberg :distance)
+
+; What is the cheapest trip from Artemis to Egglesberg?
+(alg/shortest-path airports :Artemis :Egglesberg :cost)
+
+; Show me the cities I can get to from Artemis, in order from shortest distance trips to longest.
+(alg/shortest-path airports {:start-node :Artemis, :traverse true})
+
+; What are all the cities who are (at best) two hops from Egglesberg?
+(alg/shortest-path airports {:start-node :Egglesberg, :traverse true, :min-cost 2, :max-cost 2})
+
+; What is the fewest hops from Dentana to Egglesberg avoiding the airline AirLux?
+(alg/shortest-path airports {:start-node :Dentana, :end-node :Egglesberg,
+                             :edge-filter (fn [e] (not= :AirLux (uber/attr airports e :airline)))})
+
+; What is the shortest distance from Egglesberg to Artemis, going only through large cities (population at least 3000)?
+(alg/shortest-path airports {:start-node :Egglesberg, :end-node :Artemis,
+                             :node-filter (fn [n] (<= 3000 (uber/attr airports n :population))),
+                             :cost-attr :cost})
+
+; What is the cheapest way to get from Coulton to any small city for a weekend getaway?
+(alg/shortest-path airports {:start-node :Coulton, 
+                             :end-node? (fn [n] (> 3000 (uber/attr airports n :population))),
+                             :cost-attr :cost})
+
+; I live halfway between Artemis and Balela and can use either airport.  What is the cheapest way
+; to get from either of those airports to Dentana?
+(alg/shortest-path airports {:start-nodes [:Artemis :Balela], :end-node :Dentana, :cost-attr :cost})
+
+; My sister is coming to visit me from Dentana, which airport should she fly into to save money?
+(alg/shortest-path airports {:start-node :Dentana, :end-nodes [:Artemis :Balela], :cost-attr :cost})
+
+; What's the best way from Artemis to Egglesberg if my highest priority is fewest stops, and
+; my second priority is price?
+(alg/shortest-path airports {:start-node :Artemis, :end-node :Egglesberg, 
+                             :cost-fn (fn [e] (+ 100000 (uber/attr airports e :cost)))}) 
+
+; I'm planning to make a bunch of trips out of Coulton, let's build a table of all the shortest-distance
+; paths with one traversal.
+(def out-of-coulton (alg/shortest-path airports {:start-node :Coulton, :cost-attr :distance}))
+(alg/path-to out-of-coulton :Artemis)
 
 

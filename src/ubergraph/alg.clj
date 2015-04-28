@@ -1,4 +1,5 @@
 (ns ubergraph.alg
+  "Contains algorithms that operate on Ubergraphs, and all the functions associated with paths"
   (:require [ubergraph.core :as uber]
             [ubergraph.protocols :as prots]
             [potemkin :refer [import-vars]]
@@ -87,6 +88,23 @@
   (path-to [this dest] nil))     
 
 (def ^:private no-goal (with-meta #{} {:no-goal true})) ; Used to search all possibilities
+
+(defn pprint-path 
+  "Prints a path's edges along with the edges' attribute maps. 
+(pprint-path g p) will print the attribute maps currently stored in graph g for each edge in p.
+(pprint-path p) will print the attribute maps associated with each edge in p at the time the path was generated."   
+  ([p]
+    (doseq [edge (edges-in-path p)]      
+      (println (uber/src edge) "->" (uber/dest edge)
+               (when (meta edge)
+                 (let [a (uber/attrs (meta edge) edge)]
+                   (if (seq a) a ""))))))
+  ([g p]
+    (doseq [edge (edges-in-path p)]      
+      (println (uber/src edge) "->" (uber/dest edge)
+               (let [a (uber/attrs g edge)]
+                 (if (seq a) a ""))))))
+  
 
 (defn- find-path
   "Work backwards from the destination to reconstruct the path"
@@ -376,11 +394,12 @@ shortest-path has specific arities for the two most common combinations:
           cost-fn (if cost-attr
                     #(uber/attr g % cost-attr)
                     (get search-specification :cost-fn))
-          cost-fn (fn [edge]
-                    (let [cost (cost-fn edge)]
-                      (if (neg? cost)
-                        (throw (IllegalStateException. "Negative edge, retry with Bellman-Ford alg"))
-                        cost)))
+          cost-fn (when cost-fn
+                    (fn [edge]
+                      (let [cost (cost-fn edge)]
+                        (if (neg? cost)
+                          (throw (IllegalStateException. "Negative edge, retry with Bellman-Ford alg"))
+                          cost))))
           heuristic-fn (get search-specification :heuristic-fn)
           node-filter (get search-specification :node-filter (constantly true))
           edge-filter (get search-specification :edge-filter (constantly true))
