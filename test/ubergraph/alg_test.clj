@@ -2,7 +2,6 @@
   (:use clojure.test)
   (:require [ubergraph.alg :as alg]
             [ubergraph.core :as uber]
-            [ubergraph.viz :as viz]            
             [loom.graph :as l]
             [loom.alg :as la]))
 

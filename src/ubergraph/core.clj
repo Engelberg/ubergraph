@@ -655,8 +655,23 @@ Undirected edges are counted only once."
         code)
       val)))
         
-
 ;; Visualization
+(defn- label [g]
+  (println "Label")
+  (as-> g $
+    (reduce 
+      (fn [g n]
+        (add-attr g n :label (str (if (keyword? n) (name n) n) 
+                                  \newline 
+                                  (with-out-str (clojure.pprint/pprint (attrs g n))))))
+      $ (nodes g))
+    (reduce
+      (fn [g e]
+        (if (not (mirror-edge? e)) 
+          (add-attr g e :label (with-out-str (clojure.pprint/pprint (attrs g e))))
+          g))
+      $ (edges g)))) 
+
 (defn viz-graph
   "Uses graphviz to generate a visualization of your graph. Graphviz 
 must be installed on your computer and in your path. Passes along
@@ -664,13 +679,17 @@ to graphviz the attributes on the nodes and edges, so graphviz-related
 attributes such as color, style, label, etc. will be respected.
 
 Takes an optional map which can contain:
+:auto-label true (labels each node/edge with its attribute map)
 :layout :dot, :neato, :fdp, :sfdp, :twopi, or :circo
 :save {:filename _, :format _} where format is one of
   :bmp :eps :gif :ico :jpg :jpeg :pdf :png :ps :ps2 :svgz :tif :tiff :vmlz :wbmp"
   ([g] (viz-graph g {}))
-  ([g {layout :layout {filename :filename format :format :as save} :save 
+  ([g {layout :layout {filename :filename format :format :as save} :save
+       auto-label :auto-label
        :or {layout :dot}}]
-    (let [ns (nodes g),
+    (println auto-label)
+    (let [g (if auto-label (label g) g)          
+          ns (nodes g),
           es (edges g)
           nodes (for [n ns]
                   [(if (or (string? n)

@@ -1,6 +1,6 @@
 # Ubergraph
 
-Ubergraph is a versatile, general-purpose graph data structure for Clojure.
+Ubergraph is a versatile, general-purpose graph data structure for Clojure.  It is designed to complement and extend [Loom](https://github.com/aysylu/loom), a popular Clojure collection of graph protocols and algorithms.
 
 ## Features
 
@@ -26,7 +26,7 @@ Require ubergraph in your namespace header:
 	(ns example.core
 	  (:require [ubergraph.core :as uber]))
 
-Ubergraph lists loom as a dependency, so when you add ubergraph to your project, leiningen will also download loom.  This means all of loom's namespaces are also available to you in your program.  Loom is currently organized in a way that its protocols are split across a couple different namespaces.  As a convenience, ubergraph.core provides access to all of loom's protocol functions through its own namespace.
+Ubergraph lists loom as a dependency, so when you add ubergraph to your project, leiningen will also download loom.  This means all of loom's namespaces are also available to you in your program.  Loom is currently organized in a way that its protocols are split across several different namespaces.  As a convenience, ubergraph.core provides access to all of loom's protocol functions through its own namespace.
 
 For example, rather than calling `loom.graph/out-edges` and `loom.attr/add-attr`, you can just call `uber/out-edges` and `uber/add-attr`.
 
@@ -177,7 +177,7 @@ One way that Ubergraph improves upon Loom is that graph edges have a richer impl
   :mirror? false})
 ```
 
-The main thing to note here is that internally, all edges have a `:src` field, a `:dest` field, and a uuid, which you can think of as a pointer to the map of attributes for that edge.  The other thing to note is that undirected edges are stored internally as a pair of edge objects, one for each direction.  Both edges of the pair share the same attribute map and one of the edges is marked as a "mirror" edge.  This is critical because in some algorithms, we want to traverse over all edges in both directions, but in other algorithms we only want to traverse over unique edges.  Loom provides no mechanism for this, but Ubergraph makes this easy with the protocol function `mirror-edge?`, which returns true for the mirrored edge in an undirected pair of edges, and false for directed edges and the non-mirrored undirected edges.  So `(edges g)` gives you all the edges in a graph, and `(filter (complement mirror-edge?) (edges g))` would give you a sequence of unique edges, without listing both directions of the same undirected edge.
+The main thing to note here is that internally, all edges have a `:src` field, a `:dest` field, and a uuid, which you can think of as a pointer to the map of attributes for that edge.  The other thing to note is that undirected edges are stored internally as a pair of edge objects, one for each direction.  Both edges of the pair share the same id (and therefore, the same attribute map) and one of the edges is marked as a "mirror" edge.  This is critical because in some algorithms, we want to traverse over all edges in both directions, but in other algorithms we only want to traverse over unique edges.  Loom provides no mechanism for this, but Ubergraph makes this easy with the protocol function `mirror-edge?`, which returns true for the mirrored edge in an undirected pair of edges, and false for directed edges and the non-mirrored undirected edges.  So `(edges g)` gives you all the edges in a graph, and `(remove mirror-edge? (edges g))` would give you a sequence of unique edges, without listing both directions of the same undirected edge.
 
 When writing algorithms over edges, it is strongly recommended that you access the edge endpoints through the edge abstraction, using the protocol functions `src` and `dest` (although edges support [src dest] and [src dest weight] destructuring for backwards compatibility with Loom).  Edges also support the protocol functions `edge?`, `directed-edge?`, `undirected-edge?`, and `other-direction` (which returns the other edge in the pair for undirected edges, or nil if it is a directed edge).
 
@@ -195,7 +195,7 @@ But there are also many functions which require some description of an edge as a
 
 #### Edge Descriptions
 
-So Ubergraph introduces the notion of an "edge description".  An edge description is one of the following:
+Ubergraph introduces the notion of an "edge description".  An edge description is one of the following:
 
 + [src dest]
 + [src dest weight]
@@ -243,23 +243,60 @@ As you build up graphs, random uuids are generated to link edges to attributes. 
 
 ### Algorithms
 
-Ubergraph Graphs and Digraphs can be thought of as fully-featured versions of their Loom counterparts.  Loom's algorithms should work out of the box on those sorts of ubergraphs.  
+The ubergraph.alg namespace contains a variety of useful graph algorithms. Some of these algorithms are lifted directly from Loom -- because Ubergraph implements Loom's protocols, many of Loom's algorithms work seamlessly on Ubergraphs.  Some of the algorithms that come directly from Loom include: connected-components, connected?, pre-traverse, pre-span, post-traverse, topsort, bf-span, dag?, scc, strongly-connected?, connect, bipartite-color, bipartite?, bipartite-sets.  Some algorithms were adapted from Loom for Ubergraphs with only very minor tweaks, such as loners, distinct-edges, and longest-shortest-path.
 
-For example:
+However, Ubergraph's Multigraphs and Multidigraphs go far beyond Loom's capabilities, allowing for algorithms with parallel edges.  Most of Loom's path-finding algorithms fail to take into account the possibility of parallel edges.  For example, Loom returns its paths as a list of nodes you visit.  This is sufficient when there is at most one edge between a given pair of nodes, but in a multigraph, it is absolutely necessary to identify precisely which edge you are traveling along.
 
-```clojure
-=> (require 'loom.alg)
-=> (loom.alg/dijkstra-path graph2 :a :d)
-(:a :b :d)
+For this reason, the ubergraph.alg namespace implements a brand-new shortest-path algorithm that is rich with functionality.  Ubergraph's shortest-path algorithm returns paths, which implement a protocol (also found in ubergraph.alg) that allows you get to the following information about a path: edges-in-path, nodes-in-path, cost-of-path (with respect to the kind of search that generated the path), start-of-path, and end-of-path.
+
+To appreciate the power of Ubergraph's shortest-path function, let's take a look at several examples.  But first, for reference, here is the docstring of shortest-path:
+
+```
+Finds the shortest path in graph g. You must specify a start node or a collection
+of start nodes from which to begin the search, however specifying an end node
+is optional. If an end node condition is specified, this function will return an
+implementation of the IPath protocol, representing the shortest path. Otherwise,
+it will search out as far as it can go, and return an implementation of the
+IAllPathsFromSource protocol, which contains all the data needed to quickly find
+the shortest path to a given destination (using IAllPathsFromSource's `path-to`
+protocol function).
+
+If :traverse is set to true, then the function will instead return a lazy sequence
+of the shortest paths from the start node(s) to each node in the graph in the order
+the nodes are encountered by the search process.
+
+Takes a search-specification map which must contain:
+Either :start-node (single node) or :start-nodes (collection)
+
+Map may contain the following entries:
+Either :end-node (single node) or :end-nodes (collection) or :end-node? (predicate function)
+:cost-fn - A function that takes an edge as an input and returns a cost
+          (defaults to every edge having a cost of 1, i.e., breadth-first search if no cost-fn given)
+:cost-attr - Alternatively, can specify an edge attribute to use as the cost
+:heuristic-fn - A function that takes a node as an input and returns a
+          lower-bound on the distance to a goal node, used to guide the search
+          and make it more efficient.
+:node-filter - A predicate function that takes a node and returns true or false.
+          If specified, only nodes that pass this node-filter test will be considered in the search.
+:edge-filter - A predicate function that takes an edge and returns true or false.
+          If specified, only edges that pass this edge-filter test will be considered in the search.
+
+Map may contain the following additional entries if a traversal sequence is desired:
+:traverse true - Changes output to be a sequence of paths in order encountered.
+:min-cost - Filters traversal sequence, only applies if :traverse is set to true
+:max-cost - Filters traversal sequence, only applies if :traverse is set to true
+
+
+shortest-path has specific arities for the two most common combinations:
+(shortest-path g start-node end-node)
+(shortest-path g start-node end-node cost-attr)
 ```
 
-However, Multigraphs and Multidigraphs go far beyond Loom's capabilities, allowing for algorithms with parallel edges.  Most of Loom's algorithms fail to take into account the possibility of parallel edges, so you shouldn't expect Loom's algorithms to work properly on multigraphs.
+OK, that's a bit of a doozy, but it helps give an idea of how much this one function can do.
 
-Ubergraph will eventually have its own curated repository of algorithms which are guaranteed to work on multigraphs.  For example:
+For our first running example, let's consider this map of the fictitious country of Altopia, serviced by three airlines.
 
-At the moment, this curated repository of algorithms is rather sparse.  Please help out by submitting pull requests which add to Ubergraph's collection of "curated" algorithms, known to work on graphs with and without parallel edges.
 
-As another example, loom.io/view works on all Ubergraphs, but could be dramatically improved by leveraging the abstraction that Ubergraph provides to query whether edges are directed or undirected, and ignoring mirror edges in order to draw a single undirected arrow for undirected edges, rather than two directed arrows the way loom.io/view draws it.  You can expect these sorts of improvements in future iterations of Ubergraph; in the meantime, pull requests are welcome to speed up the process.
 
 ### API
 
