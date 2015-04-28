@@ -94,12 +94,14 @@
 (pprint-path g p) will print the attribute maps currently stored in graph g for each edge in p.
 (pprint-path p) will print the attribute maps associated with each edge in p at the time the path was generated."   
   ([p]
+    (println "Total Cost:" (cost-of-path p))
     (doseq [edge (edges-in-path p)]      
       (println (uber/src edge) "->" (uber/dest edge)
                (when (meta edge)
                  (let [a (uber/attrs (meta edge) edge)]
                    (if (seq a) a ""))))))
   ([g p]
+    (println "Total Cost:" (cost-of-path p))
     (doseq [edge (edges-in-path p)]      
       (println (uber/src edge) "->" (uber/dest edge)
                (let [a (uber/attrs g edge)]

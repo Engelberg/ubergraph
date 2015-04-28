@@ -150,7 +150,7 @@
 (uber/pprint airports)
 
 ; What is the trip with the fewest hops from Artemis to Egglesberg?
-(alg/shortest-path airports {:start-node :Artemis, :end-node :Egglesberg})
+(alg/pprint-path (alg/shortest-path airports {:start-node :Artemis, :end-node :Egglesberg}))
 (alg/shortest-path airports :Artemis :Egglesberg)
 
 ; What is the trip that is the shortest distance from Coulton to Egglesberg?
