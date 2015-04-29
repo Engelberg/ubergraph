@@ -5,7 +5,8 @@
             [potemkin :refer [import-vars]]
             [clojure.core.reducers :as r]
             loom.alg)
-  (:import java.util.PriorityQueue java.util.HashMap java.util.LinkedList java.util.HashSet))
+  (:import java.util.PriorityQueue java.util.HashMap java.util.LinkedList java.util.HashSet
+           java.util.Collections))
 
 ;; Various searches for shortest paths
 ;; For speed, on Java, use mutable queues and hash maps
@@ -128,7 +129,7 @@
     (if-let [node (.poll queue)]
       (let [depth (.get depths node)]        
         (if (goal? node)
-          (->Path (delay (find-path node backlinks)) depth node)
+          (->Path (delay (find-path node (Collections/unmodifiableMap backlinks))) depth node)
           (do
             (doseq [edge (uber/out-edges g node)
                     :when (edge-filter edge)]
@@ -140,7 +141,8 @@
                   (.put backlinks dst edge))))
             (recur))))
       (if (identical? no-goal goal?)
-        (->AllBFSPathsFromSource backlinks depths)
+        (->AllBFSPathsFromSource (Collections/unmodifiableMap backlinks)
+                                 (Collections/unmodifiableMap depths))
         nil))))
 
 (defn- least-edges-path-seq-helper
@@ -160,7 +162,7 @@
           (when-let [node (.poll queue)]
             (let [depth (.get depths node)]
               (if (<= min-cost depth max-cost)
-                (cons (->Path (delay (find-path node backlinks)) depth node)
+                (cons (->Path (delay (find-path node (Collections/unmodifiableMap backlinks))) depth node)
                       (lazy-seq
                         (if (goal? node)
                           nil
@@ -199,7 +201,7 @@ using the fewest possible edges."
   (loop []
     (if-let [[cost-from-start-to-node node] (.poll queue)]
       (cond 
-        (goal? node) (->Path (delay (find-path node backlinks)) (.get least-costs node) node)
+        (goal? node) (->Path (delay (find-path node (Collections/unmodifiableMap backlinks))) (.get least-costs node) node)
         (> cost-from-start-to-node (.get least-costs node)) (recur)
         :else
         (do (doseq [edge (uber/out-edges g node)
@@ -217,7 +219,8 @@ using the fewest possible edges."
                   (.put backlinks dst edge))))
           (recur)))  
       (if (identical? no-goal goal?)
-        (->AllPathsFromSource backlinks least-costs)
+        (->AllPathsFromSource (Collections/unmodifiableMap backlinks)
+                              (Collections/unmodifiableMap least-costs))
         nil))))
 
 (defn- least-cost-path-seq-helper
@@ -248,11 +251,11 @@ using the fewest possible edges."
                     (< max-cost cost-from-start-to-node))
                 (do (explore-node node cost-from-start-to-node) (recur)),
                 
-                (goal? node) [(->Path (delay (find-path node backlinks)) (.get least-costs node) node)]
+                (goal? node) [(->Path (delay (find-path node (Collections/unmodifiableMap backlinks))) (.get least-costs node) node)]
                 (> cost-from-start-to-node (.get least-costs node)) (recur)
                 :else
                 (cons
-                  (->Path (delay (find-path node backlinks)) (.get least-costs node) node)
+                  (->Path (delay (find-path node (Collections/unmodifiableMap backlinks))) (.get least-costs node) node)
                   (lazy-seq
                     (do (explore-node node cost-from-start-to-node) (stepfn))))))))]
     (stepfn)))
@@ -279,7 +282,7 @@ from one of the starting nodes to a node that satisfies the goal? predicate."
   (loop []
     (if-let [[estimated-total-cost-through-node [cost-from-start-to-node node]] (.poll queue)]
       (cond
-        (goal? node) (->Path (delay (find-path node backlinks)) (.get least-costs node) node)
+        (goal? node) (->Path (delay (find-path node (Collections/unmodifiableMap backlinks))) (.get least-costs node) node)
         (> cost-from-start-to-node (.get least-costs node)) (recur)
         :else
         (do (doseq [edge (uber/out-edges g node)
@@ -298,7 +301,7 @@ from one of the starting nodes to a node that satisfies the goal? predicate."
                   (.put backlinks dst edge))))
           (recur)))  
       (if (identical? no-goal goal?)
-        (->AllPathsFromSource backlinks least-costs)
+        (->AllPathsFromSource (Collections/unmodifiableMap backlinks) (Collections/unmodifiableMap least-costs))
         nil))))
 
 (defn- least-cost-path-with-heuristic-seq-helper
@@ -328,10 +331,11 @@ from one of the starting nodes to a node that satisfies the goal? predicate."
                   (< max-cost cost-from-start-to-node))
               (do (explore-node node cost-from-start-to-node) (recur)),
 
-              (goal? node) [(->Path (delay (find-path node backlinks)) (.get least-costs node) node)]
+              (goal? node) [(->Path (delay (find-path node (Collections/unmodifiableMap backlinks))) 
+                                    (.get least-costs node) node)]
               (> cost-from-start-to-node (.get least-costs node)) (recur)
               :else
-              (cons (->Path (find-path node backlinks) (.get least-costs node))
+              (cons (->Path (find-path node (Collections/unmodifiableMap backlinks)) (.get least-costs node))
                     (lazy-seq 
                       (do (explore-node node cost-from-start-to-node) (stepfn)))))))]
     (stepfn)))
@@ -627,7 +631,7 @@ bellman-ford has specific arity for the most common combination:
                                                        links))
                                     backlinks
                                     valid-nodes)
-                  all-paths-from-source (->AllPathsFromSource backlinks costs)]
+                  all-paths-from-source (->AllPathsFromSource (Collections/unmodifiableMap backlinks) (Collections/unmodifiableMap costs))]
               (cond
                 traversal?
                 (->> (vec valid-nodes)
