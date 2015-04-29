@@ -481,12 +481,93 @@ We can place minimum and maximum cost constraints on the sequence of paths retur
 (:Dentana :Artemis)
 ```
 
+`shortest-path` allows you filter the edges and nodes.  What is the fewest hops from Dentana to Egglesberg avoiding the airline AirLux?
 
+```clojure
+(alg/shortest-path airports 
+   {:start-node :Dentana, :end-node :Egglesberg,
+    :edge-filter (fn [e] (not= :AirLux (uber/attr airports e :airline)))})
+```
 
+What is the shortest distance from Egglesberg to Artemis, going only through large cities (population at least 3000)?
+
+```clojure
+(alg/shortest-path airports
+   {:start-node :Egglesberg, :end-node :Artemis,
+    :node-filter (fn [n] (<= 3000 (uber/attr airports n :population))),
+    :cost-attr :cost})
+```
+
+You can specify more than one start node.  Let's say I live halfway between Artemis and Balela and can use either airport.  What is the cheapest way to get from either of those airports to Dentana?
+```clojure
+(alg/shortest-path airports {:start-nodes [:Artemis :Balela], :end-node :Dentana, :cost-attr :cost})
+```
+
+You can specify more than one end node.  Let's say my sister is coming to visit me from Dentana, which airport should she fly into to save money?
+```clojure
+(alg/shortest-path airports {:start-node :Dentana, :end-nodes [:Artemis :Balela], :cost-attr :cost})
+```
+
+Instead of listing specific end nodes, you can provide a predicate function to test whether a node qualifies as an end node.  What is the cheapest way to get from Coulton to any small city for a weekend getaway?
+```clojure
+(alg/shortest-path airports {:start-node :Coulton,
+                             :end-node? (fn [n] (> 3000 (uber/attr airports n :population))),
+                             :cost-attr :cost})
+```
+
+`shortest-path` also has built into it the ability to do an A-star search, which uses a heuristic function to make the search more efficient.  For this to work, the heuristic function must take a node and return a *lower bound* on the cost of the path between the node and the end node(s).  So, for example, a function that always returns 0 would be a valid heuristic function, but wouldn't help make the search more efficient.
+
+To demonstrate this feature, I created a graph that links all five-letter words that have only a one-letter change between them.  This graph can be used to construct "word ladders".
+
+```clojure
+=> (time (alg/nodes-in-path (alg/shortest-path wg "amigo" "enter")))
+"Elapsed time: 25.430857 msecs"
+("amigo" "amino" "amine" "amide" "abide" "abode" "anode" "anole" "anile" "anise" "arise" "prise" "prime" "prims" "pries" "prier" "pryer" "payer" "pater" "eater" "enter")
+```
+
+Clearly, a lower-bound on how far a word is from another word is the number of letters that are different between the words (since you can only change one letter at a time).
+
+```clojure
+(defn word-edit-distance [w1 w2]
+  (apply + (for [[l1 l2] (map vector w1 w2),
+                 :when (not= l1 l2)]
+             1)))
+             
+=> (time (alg/nodes-in-path (alg/shortest-path wg 
+                               {:start-node "amigo" :end-node "enter"
+                                :heuristic-fn #(word-edit-distance % "enter")})))
+"Elapsed time: 5.223978 msecs"
+("amigo" "amino" "amine" "amide" "abide" "abode" "anode" "anole" "anile" "anise" "arise" "prise" "prime" "prims" "pries" "prier" "pryer" "payer" "pater" "eater" "enter")
+```
+
+By supplying the heuristic function, we were able to cut down the search time.
+
+Last but not least, `shortest-path` can handle edges with negative costs.  If it detects a negative cost, it will run the bellman-ford algorithm, which is somewhat slower, but produces the correct results with negative edges.
+
+```clojure
+(def negative-weight-example
+  (uber/digraph
+    [:s :a 5]
+    [:s :c -2]
+    [:c :a 2]
+    [:c :d 3]
+    [:a :b 1]
+    [:b :c 2]
+    [:b :d 7]
+    [:b :t 3]
+    [:d :t 10]))
+    
+=> (alg/shortest-path negative-weight-example  :s :b :weight)
+#ubergraph.alg.Path{:list-of-edges #<Delay@7a3ed5ab: :pending>, :cost 1, :end :b}
+```
+
+Note: If you call `shortest-path` on a graph with a negative-weight *cycle*, the function will return false.
+
+All of Ubergraph's algorithms, including the new `shortest-path`, should be backwards-comaptible with Loom's graphs.
 
 ### API
 
-See the [Codox-generated docs for the Ubergraph API](http://engelberg.github.io/ubergraph/ubergraph.core.html)
+See the [Codox-generated docs for the Ubergraph API](http://engelberg.github.io/ubergraph/index.html)
 
 ## Relationship to Loom
 
@@ -521,7 +602,7 @@ Write ubergraph as a concrete implementation of all the graph behvior that Loom 
 
 ### Step 4
 
-Establish an ubergraph.alg namespace where the community can help "curate" Loom's algorithms, identifying algorithms from loom.alg that work out of the box on ubergraphs, modifying algorithms from loom.alg that need modification, and writing new algorithms that leverage ubergraph's added capabilities.
+Establish an ubergraph.alg namespace where the community can help "curate" Loom's algorithms, identifying algorithms from loom.alg that work out of the box on ubergraphs, modifying algorithms from loom.alg that need modification, and writing new algorithms that leverage ubergraph's added capabilities.  I have already made good progress on this front, but there are several algorithms that still need to be adapted for Ubergraphs, such as minimum spanning tree and max flow (although Loom's algorithms will likely work on non-multigraph Ubergraphs).  I would also welcome any help in creating and adding test cases.
 
 ### Step 5
 
@@ -530,6 +611,6 @@ Ideally, I'm hoping that once all of Loom's algorithms have been successfully co
 
 ## License
 
-Copyright (C) 2014 Mark Engelberg (mark.engelberg@gmail.com)
+Copyright (C) 2014-2015 Mark Engelberg (mark.engelberg@gmail.com)
 
 Distributed under the [Eclipse Public License](http://opensource.org/licenses/eclipse-1.0.php), the same as Clojure.

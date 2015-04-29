@@ -34,6 +34,17 @@
    [:a :e 173]
    [:e :j 502]))
 
+(def negative-weight-example
+  (uber/digraph
+    [:s :a 5]
+    [:s :c -2]
+    [:c :a 2]
+    [:c :d 3]
+    [:a :b 1]
+    [:b :c 2]
+    [:b :d 7]
+    [:b :t 3]
+    [:d :t 10]))
 
 (deftest breadth-first-test
   (are [expected got] (= expected got)
@@ -171,30 +182,21 @@
 ;       '(() ([:Artemis :Dentana :CheapAir]) ([:Artemis :Coulton :ThriftyLines]) ([:Artemis :Balela :ThriftyLines]) ([:Artemis :Dentana :CheapAir] [:Dentana :Egglesberg :AirLux]))
        (set (map alg/end-of-path (alg/shortest-path airports {:start-node :Egglesberg, :traverse true, :min-cost 2, :max-cost 2})))
        #{:Dentana :Artemis}
+       (airport-edges (alg/shortest-path airports {:start-node :Dentana, :end-node :Egglesberg,
+                                               :edge-filter (fn [e] (not= :AirLux (uber/attr airports e :airline)))}))
+       (list [:Dentana :Artemis :CheapAir] [:Artemis :Balela :ThriftyLines] [:Balela :Egglesberg :CheapAir])
+       (airport-edges (alg/shortest-path airports {:start-node :Egglesberg, :end-node :Artemis,
+                                               :node-filter (fn [n] (<= 3000 (uber/attr airports n :population))),
+                                               :cost-attr :cost}))
+       '([:Egglesberg :Coulton :AirLux] [:Coulton :Artemis :ThriftyLines])
+       (airport-edges (alg/shortest-path airports {:start-node :Coulton, 
+                                               :end-node? (fn [n] (> 3000 (uber/attr airports n :population))),
+                                               :cost-attr :cost}))
+       '([:Coulton :Dentana :AirLux])
+        (airport-edges (alg/shortest-path airports {:start-nodes [:Artemis :Balela], :end-node :Dentana, :cost-attr :cost}))
+        '([:Artemis :Dentana :CheapAir])
+        (airport-edges (alg/shortest-path airports {:start-node :Dentana, :end-nodes [:Artemis :Balela], :cost-attr :cost}))
+        '([:Dentana :Artemis :CheapAir])
        ))
 
-; What are all the cities who are (at best) two hops from Egglesberg?
-(alg/shortest-path airports {:start-node :Egglesberg, :traverse true, :min-cost 2, :max-cost 2})
-
-
-; What is the fewest hops from Dentana to Egglesberg avoiding the airline AirLux?
-(alg/shortest-path airports {:start-node :Dentana, :end-node :Egglesberg,
-                             :edge-filter (fn [e] (not= :AirLux (uber/attr airports e :airline)))})
-
-; What is the shortest distance from Egglesberg to Artemis, going only through large cities (population at least 3000)?
-(alg/shortest-path airports {:start-node :Egglesberg, :end-node :Artemis,
-                             :node-filter (fn [n] (<= 3000 (uber/attr airports n :population))),
-                             :cost-attr :cost})
-
-; What is the cheapest way to get from Coulton to any small city for a weekend getaway?
-(alg/shortest-path airports {:start-node :Coulton, 
-                             :end-node? (fn [n] (> 3000 (uber/attr airports n :population))),
-                             :cost-attr :cost})
-
-; I live halfway between Artemis and Balela and can use either airport.  What is the cheapest way
-; to get from either of those airports to Dentana?
-(alg/shortest-path airports {:start-nodes [:Artemis :Balela], :end-node :Dentana, :cost-attr :cost})
-
-; My sister is coming to visit me from Dentana, which airport should she fly into to save money?
-(alg/shortest-path airports {:start-node :Dentana, :end-nodes [:Artemis :Balela], :cost-attr :cost})
 

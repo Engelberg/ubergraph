@@ -58,24 +58,27 @@
   (end-of-path [this] end)
   (start-of-path [this] (first (nodes-in-path this))))
 
-(defrecord AllPathsFromSource [^HashMap backlinks ^HashMap least-costs]
+(defrecord AllPathsFromSource [backlinks least-costs]
   ubergraph.protocols/IAllPathsFromSource
   (path-to [this dest]
     (->Path (delay (find-path dest backlinks))
-            (.get least-costs dest)
+            (get least-costs dest)
             dest)))
 
-(defrecord AllBFSPathsFromSource [^HashMap backlinks ^HashMap depths]
+(defrecord AllBFSPathsFromSource [backlinks depths]
   ubergraph.protocols/IAllPathsFromSource
   (path-to [this dest]
     (->Path (delay (find-path dest backlinks))
-            (.get depths dest)
+            (get depths dest)
             dest)))
             
 (alter-meta! #'->Path assoc :no-doc true)
 (alter-meta! #'->AllPathsFromSource assoc :no-doc true)
+(alter-meta! #'->AllBFSPathsFromSource assoc :no-doc true)
 (alter-meta! #'map->Path assoc :no-doc true)
 (alter-meta! #'map->AllPathsFromSource assoc :no-doc true)
+(alter-meta! #'map->AllBFSPathsFromSource assoc :no-doc true)
+
 
 (extend-type nil
   ubergraph.protocols/IPath
@@ -111,8 +114,8 @@
 (defn- find-path
   "Work backwards from the destination to reconstruct the path"
   ([to backlinks] (find-path to backlinks ()))
-  ([to ^HashMap backlinks path]
-    (let [prev-edge (.get backlinks to)]
+  ([to backlinks path]
+    (let [prev-edge (get backlinks to)]
       (if (= prev-edge ())
         path
         (recur (uber/src prev-edge) backlinks (cons prev-edge path))))))
@@ -441,7 +444,7 @@ shortest-path has specific arities for the two most common combinations:
         
           :else
           (least-cost-path g starting-nodes goal? cost-fn node-filter edge-filter traversal? min-cost max-cost))
-        (catch IllegalStateException e (bellman-ford search-specification))))))
+        (catch IllegalStateException e (bellman-ford g search-specification))))))
   
 
 ;; Algorithms similar to those in Loom, adapted for Ubergraphs
