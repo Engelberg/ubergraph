@@ -146,24 +146,36 @@
     (uber/add-attr :Dentana :population 1000)
     (uber/add-attr :Egglesberg :population 5000)))
 
-(uber/pprint airports)
+(def ^:private airport-edge-details (juxt uber/src uber/dest #(uber/attr airports % :airline)))
 
-; What is the trip with the fewest hops from Artemis to Egglesberg?
-(alg/pprint-path (alg/shortest-path airports {:start-node :Artemis, :end-node :Egglesberg}))
-(alg/shortest-path airports :Artemis :Egglesberg)
+(defn- airport-edges [path]
+  (map airport-edge-details (alg/edges-in-path path)))
 
-; What is the trip that is the shortest distance from Coulton to Egglesberg?
-(alg/shortest-path airports {:start-node :Coulton, :end-node :Egglesberg, :cost-attr :distance})
-(alg/shortest-path airports :Coulton :Egglesberg :distance)
 
-; What is the cheapest trip from Artemis to Egglesberg?
-(alg/shortest-path airports :Artemis :Egglesberg :cost)
-
-; Show me the cities I can get to from Artemis, in order from shortest distance trips to longest.
-(alg/shortest-path airports {:start-node :Artemis, :traverse true})
+;Need to figure out how to make these tests more robust, because the specific paths among equal possibilities
+;can vary from one run to the next 
+(deftest test-airports    
+  (are [actual expected] (= expected actual)
+;       (map (juxt uber/src uber/dest #(uber/attr airports % :color)) (alg/edges-in-path (alg/shortest-path airports {:start-node :Artemis, :end-node :Egglesberg})))
+;       (list [:Artemis :Dentana :blue] [:Dentana :Egglesberg :red])     
+       (map airport-edge-details (alg/edges-in-path (alg/shortest-path airports :Coulton :Egglesberg :distance)))       
+       (list [:Coulton :Dentana :AirLux] [:Dentana :Egglesberg :AirLux])
+       (airport-edges (alg/shortest-path airports :Artemis :Egglesberg :cost))
+       (list [:Artemis :Dentana :CheapAir] [:Dentana :Egglesberg :AirLux])
+       (airport-edges (alg/shortest-path airports {:start-node :Artemis, :end-node :Egglesberg, 
+                                                   :cost-fn (fn [e] (+ 100000 (uber/attr airports e :distance)))}))
+       (list [:Artemis :Balela :ThriftyLines] [:Balela :Egglesberg :CheapAir])
+       (airport-edges (alg/path-to (alg/shortest-path airports {:start-node :Coulton, :cost-attr :distance}) :Artemis))
+       '([:Coulton :Balela :ThriftyLines] [:Balela :Artemis :ThriftyLines])
+;       (map airport-edges (alg/shortest-path airports {:start-node :Artemis, :traverse true}))
+;       '(() ([:Artemis :Dentana :CheapAir]) ([:Artemis :Coulton :ThriftyLines]) ([:Artemis :Balela :ThriftyLines]) ([:Artemis :Dentana :CheapAir] [:Dentana :Egglesberg :AirLux]))
+       (set (map alg/end-of-path (alg/shortest-path airports {:start-node :Egglesberg, :traverse true, :min-cost 2, :max-cost 2})))
+       #{:Dentana :Artemis}
+       ))
 
 ; What are all the cities who are (at best) two hops from Egglesberg?
 (alg/shortest-path airports {:start-node :Egglesberg, :traverse true, :min-cost 2, :max-cost 2})
+
 
 ; What is the fewest hops from Dentana to Egglesberg avoiding the airline AirLux?
 (alg/shortest-path airports {:start-node :Dentana, :end-node :Egglesberg,
@@ -185,15 +197,4 @@
 
 ; My sister is coming to visit me from Dentana, which airport should she fly into to save money?
 (alg/shortest-path airports {:start-node :Dentana, :end-nodes [:Artemis :Balela], :cost-attr :cost})
-
-; What's the best way from Artemis to Egglesberg if my highest priority is fewest stops, and
-; my second priority is price?
-(alg/shortest-path airports {:start-node :Artemis, :end-node :Egglesberg, 
-                             :cost-fn (fn [e] (+ 100000 (uber/attr airports e :cost)))}) 
-
-; I'm planning to make a bunch of trips out of Coulton, let's build a table of all the shortest-distance
-; paths with one traversal.
-(def out-of-coulton (alg/shortest-path airports {:start-node :Coulton, :cost-attr :distance}))
-(alg/path-to out-of-coulton :Artemis)
-
 

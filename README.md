@@ -249,6 +249,8 @@ However, Ubergraph's Multigraphs and Multidigraphs go far beyond Loom's capabili
 
 For this reason, the ubergraph.alg namespace implements a brand-new shortest-path algorithm that is rich with functionality.  Ubergraph's shortest-path algorithm returns paths, which implement a protocol (also found in ubergraph.alg) that allows you get to the following information about a path: edges-in-path, nodes-in-path, cost-of-path (with respect to the kind of search that generated the path), start-of-path, and end-of-path.
 
+##### Shortest Path
+
 To appreciate the power of Ubergraph's shortest-path function, let's take a look at several examples.  But first, for reference, here is the docstring of shortest-path:
 
 ```
@@ -295,6 +297,190 @@ shortest-path has specific arities for the two most common combinations:
 OK, that's a bit of a doozy, but it helps give an idea of how much this one function can do.
 
 For our first running example, let's consider this map of the fictitious country of Altopia, serviced by three airlines.
+
+<img src="https://raw.githubusercontent.com/Engelberg/ubergraph/master/doc/images/airports.png">
+
+This map was generated from the following graph:
+
+```clojure
+(def airports
+  (-> (uber/multigraph
+        [:Artemis :Balela {:color :blue, :airline :CheapAir, :cost 200, :distance 40}]
+        [:Artemis :Balela {:color :green, :airline :ThriftyLines, :cost 167, :distance 40}]
+        [:Artemis :Coulton {:color :green, :airline :ThriftyLines, :cost 235, :distance 120}]
+        [:Artemis :Dentana {:color :blue, :airline :CheapAir, :cost 130, :distance 160}]
+        [:Balela :Coulton {:color :green, :airline :ThriftyLines, :cost 142, :distance 70}]
+        [:Balela :Egglesberg {:color :blue, :airline :CheapAir, :cost 350, :distance 50}])
+    (uber/add-directed-edges
+      [:Dentana :Egglesberg {:color :red, :airline :AirLux, :cost 80, :distance 50}]
+      [:Egglesberg :Coulton {:color :red, :airline :AirLux, :cost 80, :distance 30}]
+      [:Coulton :Dentana {:color :red, :airline :AirLux, :cost 80, :distance 65}])
+    (uber/add-attr :Artemis :population 3000)
+    (uber/add-attr :Balela :population 2000)
+    (uber/add-attr :Coulton :population 4000)
+    (uber/add-attr :Dentana :population 1000)
+    (uber/add-attr :Egglesberg :population 5000)))
+
+=> (uber/pprint airports)
+Multigraph
+5 Nodes:
+	 :Egglesberg {:population 5000}
+	 :Dentana {:population 1000}
+	 :Coulton {:population 4000}
+	 :Balela {:population 2000}
+	 :Artemis {:population 3000}
+9 Edges:
+	 :Egglesberg -> :Coulton {:airline :AirLux, :color :red, :cost 80, :distance 30}
+	 :Dentana -> :Egglesberg {:airline :AirLux, :color :red, :cost 80, :distance 50}
+	 :Coulton -> :Dentana {:airline :AirLux, :color :red, :cost 80, :distance 65}
+	 :Balela <-> :Egglesberg {:airline :CheapAir, :color :blue, :cost 350, :distance 50}
+	 :Balela <-> :Coulton {:airline :ThriftyLines, :color :green, :cost 142, :distance 70}
+	 :Artemis <-> :Dentana {:airline :CheapAir, :color :blue, :cost 130, :distance 160}
+	 :Artemis <-> :Coulton {:airline :ThriftyLines, :color :green, :cost 235, :distance 120}
+	 :Artemis <-> :Balela {:airline :CheapAir, :color :blue, :cost 200, :distance 40}
+	 :Artemis <-> :Balela {:airline :ThriftyLines, :color :green, :cost 167, :distance 40}
+```
+
+To create a visualization of the graph, I used the `viz-graph` function in the ubergraph.core namespace (must have GraphViz installed for this to work):
+
+```clojure
+=> (uber/viz-graph airports)
+```
+
+To save it to a file, I did the following:
+```clojure
+=> (uber/viz-graph airports {:save {:filename "C:/temp/airports.png" :format :png}})
+```
+
+The options map for viz-graph can also take a Graphviz layout algorithm (e.g., :neato) with, for example, `:layout :neato`.  Another option is to specify `:auto-label true` which will annotate all the nodes and edges with their attribute maps.  If the attribute maps for the nodes and edges contain attributes relevant to Graphviz (e.g., color, style, etc.) then graphviz will take that into account when drawing the graph.
+
+So let's start off with a simple question: What is the trip with the fewest hops from Artemis to Egglesberg?  This calls for a breadth-first search, and this is what `shortest-path` does by default.  We require the ubergraph.alg namespace and alias it as `alg`.  ubergraph.alg contains both the shortest-path algorithm, as well as all the functions that operate on paths.
+
+```clojure
+=> (alg/shortest-path airports {:start-node :Artemis, :end-node :Egglesberg})
+#ubergraph.alg.Path{:list-of-edges #<Delay@328ab9ec: :pending>, :cost 2, :end :Egglesberg}
+```
+
+Hmm, that doesn't seem overly useful.  But remember, paths implement a protocol that lets us get at the details of the path:
+
+```clojure
+=> (alg/nodes-in-path (alg/shortest-path airports {:start-node :Artemis, :end-node :Egglesberg}))
+(:Artemis :Dentana :Egglesberg)
+=> (alg/edges-in-path (alg/shortest-path airports {:start-node :Artemis, :end-node :Egglesberg}))
+(#ubergraph.core.UndirectedEdge{:id #uuid "4e79cfc4-e15d-42ed-8cf6-44476f2ed972",
+                                :src :Artemis, :dest :Dentana, :mirror? false}
+ #ubergraph.core.Edge{:id #uuid "4f1b2958-c355-4512-a5ca-9e89f5f49207",
+                                :src :Dentana, :dest :Egglesberg})
+=> (alg/start-of-path (alg/shortest-path airports {:start-node :Artemis, :end-node :Egglesberg}))
+:Artemis
+=> (alg/end-of-path (alg/shortest-path airports {:start-node :Artemis, :end-node :Egglesberg}))
+:Egglesberg
+=> (alg/cost-of-path (alg/shortest-path airports {:start-node :Artemis, :end-node :Egglesberg}))
+2
+```
+
+The edges don't directly store the attributes (they are stored in the graph, keyed by edge id).  A convenience function is provided to make it easy to see from a glance at the REPL which edges we're talking about:
+
+```clojure
+=> (alg/pprint-path (alg/shortest-path airports {:start-node :Artemis, :end-node :Egglesberg}))
+Total Cost: 2
+:Artemis -> :Dentana {:airline :CheapAir, :color :blue, :cost 130, :distance 160}
+:Dentana -> :Egglesberg {:airline :AirLux, :color :red, :cost 80, :distance 50}
+```
+
+Note that in this case, the cost is referring to the number of edges we traversed (since we did a breadth-first search), which means that there are two edges in the path.
+
+Another possibility is to roll your own function to supply the important details of your edges:
+
+```
+(def airport-edge-details (juxt uber/src uber/dest #(uber/attr airports % :airline)))
+
+=> (->> (alg/shortest-path airports {:start-node :Artemis, :end-node :Egglesberg})
+     alg/edges-in-path
+     (map airport-edge-details))
+([:Artemis :Dentana :CheapAir] [:Dentana :Egglesberg :AirLux])
+```
+
+A breadth-first search between two specific nodes is one of the most common types of functions, so the 3-arity version of `shortest-path` supports this use case directly.  The above question could also have been written as:
+
+```clojure
+=> (alg/shortest-path airports :Artemis :Egglesberg)
+```
+
+What is the trip that is the shortest distance from Coulton to Egglesberg?  We can answer this by setting the :cost-attr to be :distance.
+
+```clojure
+=> (alg/pprint-path (alg/shortest-path airports {:start-node :Coulton, :end-node :Egglesberg, :cost-attr :distance}))
+Total Cost: 115
+:Coulton -> :Dentana {:airline :AirLux, :color :red, :cost 80, :distance 65}
+:Dentana -> :Egglesberg {:airline :AirLux, :color :red, :cost 80, :distance 50}
+```
+
+Note that because we searched by distance the total "Cost" that is printed is the total distance.
+
+A cost-attribute search between two nodes is the second-most common query, so you can express it more compactly as:
+```clojure
+(alg/shortest-path airports :Coulton :Egglesberg :distance)
+```
+
+One really nice aspect of Ubergraph is that, unlike Loom, which has a single privileged "weight" field that you can search on, Ubergraph makes it just as easy to search on any attribute.  What is the *cheapest* trip from Artemis to Egglesberg?
+
+```clojure
+=> (alg/pprint-path (alg/shortest-path airports :Artemis :Egglesberg :cost))
+Total Cost: 210
+:Artemis -> :Dentana {:airline :CheapAir, :color :blue, :cost 130, :distance 160}
+:Dentana -> :Egglesberg {:airline :AirLux, :color :red, :cost 80, :distance 50}
+```
+
+In this case, because we searched on :cost, the "Cost" that is printed is actually the dollar cost.
+
+Actually, we are not just limited to minimizing based on edge attributes, we can also search by any arbitrary cost function that takes an edge as its input.  Let's use this power to find out the best way to get from Artemis to Egglesberg if we want to prioritize the shortest number of edges and use distance as a tiebreaker.  We can do this by creating a function that imposes a large cost on each edge, and a small additional cost based on distance.
+
+```clojure
+=> (alg/pprint-path
+     (alg/shortest-path airports
+	     {:start-node :Artemis, :end-node :Egglesberg,
+          :cost-fn (fn [e] (+ 100000 (uber/attr airports e :distance)))}))
+Total Cost: 200090
+:Artemis -> :Balela {:airline :ThriftyLines, :color :green, :cost 167, :distance 40}
+:Balela -> :Egglesberg {:airline :CheapAir, :color :blue, :cost 350, :distance 50}
+```
+
+Let's say I plan to do a lot of travel out of Coulton, and I plan to search for the shortest distance path from Coulton to several other cities.  If I just pass `shortest-path` a start node with no end node, it will return an instance of the AllPathsFromSource protocol, which can essentially be thought of as a lookup table that can be used to efficiently answer shortest paths questions emanating from the same source.
+
+```clojure
+(def out-of-coulton (alg/shortest-path airports {:start-node :Coulton, :cost-attr :distance}))
+```
+
+We extract the specific paths with the `path-to` protocol function.
+
+```clojure
+=> (alg/pprint-path (alg/path-to out-of-coulton :Artemis))
+Total Cost: 110
+:Coulton -> :Balela {:airline :ThriftyLines, :color :green, :cost 142, :distance 70}
+:Balela -> :Artemis {:airline :ThriftyLines, :color :green, :cost 167, :distance 40}
+```
+
+Sometimes, you don't just want the final lookup table of paths, you want to see the order in which the paths are discovered by the search process.  You can get this sequence of paths by setting `:traverse true`.  Let's look at the order in which the cities are visited in a breadth-first search out of Artemis.  Remember, this is a sequence of path objects that is returned, so we can use any of the path protocol functions to get at the contents of the path.
+
+```clojure
+=> (alg/shortest-path airports {:start-node :Artemis, :traverse true})
+(#ubergraph.alg.Path{:list-of-edges #<Delay@7d3b1918: :pending>, :cost 0, :end :Artemis}
+#ubergraph.alg.Path{:list-of-edges #<Delay@5462d913: :pending>, :cost 1, :end :Dentana}
+#ubergraph.alg.Path{:list-of-edges #<Delay@410fe1e3: :pending>, :cost 1, :end :Coulton}
+#ubergraph.alg.Path{:list-of-edges #<Delay@507f93c7: :pending>, :cost 1, :end :Balela}
+#ubergraph.alg.Path{:list-of-edges #<Delay@75a9a309: :pending>, :cost 2, :end :Egglesberg})
+```
+
+We can place minimum and maximum cost constraints on the sequence of paths returned by the traversal.  So, for example, if we want to know all the cities who are (at best) two hops from Egglesberg:
+
+```clojure
+=> (map alg/end-of-path
+     (alg/shortest-path airports
+	    {:start-node :Egglesberg, :traverse true, :min-cost 2, :max-cost 2}))
+(:Dentana :Artemis)
+```
+
 
 
 

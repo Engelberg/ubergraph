@@ -591,7 +591,7 @@ Undirected edges are counted only once."
   (println (graph-type g))
   (println (count-nodes g) "Nodes:")
   (doseq [node (nodes g)] 
-    (println \tab node))
+    (println \tab node (let [a (attrs g node)] (if (seq a) a ""))))
   (println (count-unique-edges g) "Edges:")
   (doseq [edge (edges g)]
     (cond

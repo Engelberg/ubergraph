@@ -142,7 +142,16 @@
 (defn- least-edges-path-seq-helper
   "Variation that produces a seq of paths produced during the traversal"
   [g goal? ^LinkedList queue ^HashMap backlinks ^HashMap depths node-filter edge-filter min-cost max-cost]
-  (let [stepfn 
+  (let [explore-node (fn [node depth]
+                       (doseq [edge (uber/out-edges g node)
+                                    :when (edge-filter edge)]
+                              (let [dst (uber/dest edge)
+                                    inc-depth (inc depth)]
+                                (when (and (node-filter node) (not (.get backlinks dst)))
+                                  (.add queue dst)
+                                  (.put depths dst inc-depth)
+                                  (.put backlinks dst edge)))))
+        stepfn 
         (fn stepfn [] 
           (when-let [node (.poll queue)]
             (let [depth (.get depths node)]
@@ -152,16 +161,13 @@
                         (if (goal? node)
                           nil
                           (do
-                            (doseq [edge (uber/out-edges g node)
-                                    :when (edge-filter edge)]
-                              (let [dst (uber/dest edge)
-                                    inc-depth (inc depth)]
-                                (when (and (node-filter node) (not (.get backlinks dst)))
-                                  (.add queue dst)
-                                  (.put depths dst inc-depth)
-                                  (.put backlinks dst edge))))
+                            (explore-node node depth)
                             (stepfn)))))
-                (recur)))))]
+                (if (goal? node)
+                  nil
+                  (do
+                    (explore-node node depth)
+                    (recur)))))))]
 
     (stepfn)))
 
@@ -214,15 +220,29 @@ using the fewest possible edges."
   "Variation that produces a seq of paths produced during the traversal"
   [g goal? ^PriorityQueue queue ^HashMap least-costs 
    ^HashMap backlinks cost-fn node-filter edge-filter min-cost max-cost]
-  (let [stepfn 
+  (let [explore-node 
+        (fn [node cost-from-start-to-node]
+          (doseq [edge (uber/out-edges g node)
+                  :when (edge-filter edge)
+                  :let [dst (uber/dest edge)]
+                  :when (node-filter dst)]
+            (let [cost-from-node-to-dst (cost-fn edge),
+                  cost-from-start-to-dst (+ cost-from-start-to-node 
+                                            cost-from-node-to-dst)
+                  least-cost-found-so-far-from-start-to-dst (.get least-costs dst)]
+              (when (or (not least-cost-found-so-far-from-start-to-dst) 
+                        (< cost-from-start-to-dst least-cost-found-so-far-from-start-to-dst))
+                (.add queue [cost-from-start-to-dst dst])
+                (.put least-costs dst cost-from-start-to-dst)
+                (.put backlinks dst edge))))),
+        stepfn 
         (fn stepfn []
-          (println "stepfn")
           (loop []
             (when-let [[cost-from-start-to-node node] (.poll queue)]
               (cond 
                 (or (< cost-from-start-to-node min-cost)
                     (< max-cost cost-from-start-to-node))
-                (recur),
+                (do (explore-node node cost-from-start-to-node) (recur)),
                 
                 (goal? node) [(->Path (delay (find-path node backlinks)) (.get least-costs node) node)]
                 (> cost-from-start-to-node (.get least-costs node)) (recur)
@@ -230,20 +250,7 @@ using the fewest possible edges."
                 (cons
                   (->Path (delay (find-path node backlinks)) (.get least-costs node) node)
                   (lazy-seq
-                    (do (doseq [edge (uber/out-edges g node)
-                                :when (edge-filter edge)
-                                :let [dst (uber/dest edge)]
-                                :when (node-filter dst)]
-                          (let [cost-from-node-to-dst (cost-fn edge),
-                                cost-from-start-to-dst (+ cost-from-start-to-node 
-                                                          cost-from-node-to-dst)
-                                least-cost-found-so-far-from-start-to-dst (.get least-costs dst)]
-                            (when (or (not least-cost-found-so-far-from-start-to-dst) 
-                                      (< cost-from-start-to-dst least-cost-found-so-far-from-start-to-dst))
-                              (.add queue [cost-from-start-to-dst dst])
-                              (.put least-costs dst cost-from-start-to-dst)
-                              (.put backlinks dst edge))))
-                     (stepfn))))))))]
+                    (do (explore-node node cost-from-start-to-node) (stepfn))))))))]
     (stepfn)))
 
 (defn- least-cost-path
@@ -293,34 +300,36 @@ from one of the starting nodes to a node that satisfies the goal? predicate."
 (defn- least-cost-path-with-heuristic-seq-helper
   "Variation that produces seq of paths traversed"
   [g goal? ^PriorityQueue queue ^HashMap least-costs ^HashMap backlinks cost-fn heuristic-fn node-filter edge-filter min-cost max-cost]
-  (let [stepfn
+  (let [explore-node 
+        (fn [node cost-from-start-to-node]
+          (doseq [edge (uber/out-edges g node)
+                  :when (edge-filter edge)
+                  :when (node-filter (uber/dest edge))]
+            (let [dst (uber/dest edge),
+                  cost-from-node-to-dst (cost-fn edge),
+                  cost-from-start-to-dst (+ cost-from-start-to-node
+                                            cost-from-node-to-dst)
+                  least-cost-found-so-far-from-start-to-dst (.get least-costs dst)]
+              (when (or (not least-cost-found-so-far-from-start-to-dst) 
+                        (< cost-from-start-to-dst least-cost-found-so-far-from-start-to-dst))
+                (.add queue [(+ cost-from-start-to-dst (heuristic-fn dst))
+                             [cost-from-start-to-dst dst]])
+                (.put least-costs dst cost-from-start-to-dst)
+                (.put backlinks dst edge))))),
+        stepfn
         (fn stepfn []
           (when-let [[estimated-total-cost-through-node [cost-from-start-to-node node]] (.poll queue)]
             (cond
               (or (< cost-from-start-to-node min-cost)
                   (< max-cost cost-from-start-to-node))
-              (recur),
+              (do (explore-node node cost-from-start-to-node) (recur)),
 
               (goal? node) [(->Path (delay (find-path node backlinks)) (.get least-costs node) node)]
               (> cost-from-start-to-node (.get least-costs node)) (recur)
               :else
               (cons (->Path (find-path node backlinks) (.get least-costs node))
                     (lazy-seq 
-                      (do (doseq [edge (uber/out-edges g node)
-                                  :when (edge-filter edge)
-                                  :when (node-filter (uber/dest edge))]
-                            (let [dst (uber/dest edge),
-                                  cost-from-node-to-dst (cost-fn edge),
-                                  cost-from-start-to-dst (+ cost-from-start-to-node
-                                                            cost-from-node-to-dst)
-                                  least-cost-found-so-far-from-start-to-dst (.get least-costs dst)]
-                              (when (or (not least-cost-found-so-far-from-start-to-dst) 
-                                        (< cost-from-start-to-dst least-cost-found-so-far-from-start-to-dst))
-                                (.add queue [(+ cost-from-start-to-dst (heuristic-fn dst))
-                                             [cost-from-start-to-dst dst]])
-                                (.put least-costs dst cost-from-start-to-dst)
-                                (.put backlinks dst edge))))
-                        (stepfn)))))))]
+                      (do (explore-node node cost-from-start-to-node) (stepfn)))))))]
     (stepfn)))
         
 (defn- least-cost-path-with-heuristic
