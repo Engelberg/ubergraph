@@ -6,8 +6,7 @@ Ubergraph is a versatile, general-purpose graph data structure for Clojure.  It 
 
 * Ubergraph supports directed edges, undirected edges, weighted edges, node and edge attributes.
 * Ubergraph implements all of Loom's protocols.
-* Ubergraph goes beyond Loom's protocols, allowing a mixture of directed and undirected edges within a single graph,
-multiple "parallel" edges between a given pair of nodes, multiple weights per edge, and changeable weights.
+* Ubergraph goes beyond Loom's protocols, allowing a mixture of directed and undirected edges within a single graph, multiple "parallel" edges between a given pair of nodes, multiple weights per edge, and changeable weights.
 
 Ubergraph is a great choice for people who:
 
