@@ -36,6 +36,7 @@
 
 (def negative-weight-example
   (uber/digraph
+    :f
     [:s :a 5]
     [:s :c -2]
     [:c :a 2]

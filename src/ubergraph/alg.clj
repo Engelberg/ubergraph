@@ -61,9 +61,10 @@
 (defrecord AllPathsFromSource [backlinks least-costs]
   ubergraph.protocols/IAllPathsFromSource
   (path-to [this dest]
-    (->Path (delay (find-path dest backlinks))
-            (get least-costs dest)
-            dest)))
+    (when (get backlinks dest)
+      (->Path (delay (find-path dest backlinks))
+              (get least-costs dest)
+              dest))))
 
 (defrecord AllBFSPathsFromSource [backlinks depths]
   ubergraph.protocols/IAllPathsFromSource
