@@ -167,34 +167,34 @@
 ;can vary from one run to the next 
 (deftest test-airports    
   (are [actual expected] (= expected actual)
-;       (map (juxt uber/src uber/dest #(uber/attr airports % :color)) (alg/edges-in-path (alg/shortest-path airports {:start-node :Artemis, :end-node :Egglesberg})))
-;       (list [:Artemis :Dentana :blue] [:Dentana :Egglesberg :red])     
-       (map airport-edge-details (alg/edges-in-path (alg/shortest-path airports :Coulton :Egglesberg :distance)))       
-       (list [:Coulton :Dentana :AirLux] [:Dentana :Egglesberg :AirLux])
-       (airport-edges (alg/shortest-path airports :Artemis :Egglesberg :cost))
-       (list [:Artemis :Dentana :CheapAir] [:Dentana :Egglesberg :AirLux])
-       (airport-edges (alg/shortest-path airports {:start-node :Artemis, :end-node :Egglesberg, 
-                                                   :cost-fn (fn [e] (+ 100000 (uber/attr airports e :distance)))}))
-       (list [:Artemis :Balela :ThriftyLines] [:Balela :Egglesberg :CheapAir])
-       (airport-edges (alg/path-to (alg/shortest-path airports {:start-node :Coulton, :cost-attr :distance}) :Artemis))
-       '([:Coulton :Balela :ThriftyLines] [:Balela :Artemis :ThriftyLines])
-;       (map airport-edges (alg/shortest-path airports {:start-node :Artemis, :traverse true}))
-;       '(() ([:Artemis :Dentana :CheapAir]) ([:Artemis :Coulton :ThriftyLines]) ([:Artemis :Balela :ThriftyLines]) ([:Artemis :Dentana :CheapAir] [:Dentana :Egglesberg :AirLux]))
+       (alg/cost-of-path (alg/shortest-path airports {:start-node :Artemis, :end-node :Egglesberg}))
+       2,  
+       (alg/cost-of-path (alg/shortest-path airports :Coulton :Egglesberg :distance))       
+       115
+       (alg/cost-of-path (alg/shortest-path airports :Artemis :Egglesberg :cost))
+       210
+       (alg/cost-of-path (alg/shortest-path airports {:start-node :Artemis, :end-node :Egglesberg, 
+                                                      :cost-fn (fn [e] (+ 100000 (uber/attr airports e :distance)))}))
+       200090
+       (alg/cost-of-path (alg/path-to (alg/shortest-path airports {:start-node :Coulton, :cost-attr :distance}) :Artemis))
+       110
+       (frequencies (map alg/cost-of-path (alg/shortest-path airports {:start-node :Artemis, :traverse true})))
+       {0 1, 1 3, 2 1}
        (set (map alg/end-of-path (alg/shortest-path airports {:start-node :Egglesberg, :traverse true, :min-cost 2, :max-cost 2})))
        #{:Dentana :Artemis}
-       (airport-edges (alg/shortest-path airports {:start-node :Dentana, :end-node :Egglesberg,
+       (alg/cost-of-path (alg/shortest-path airports {:start-node :Dentana, :end-node :Egglesberg,
                                                :edge-filter (fn [e] (not= :AirLux (uber/attr airports e :airline)))}))
-       (list [:Dentana :Artemis :CheapAir] [:Artemis :Balela :ThriftyLines] [:Balela :Egglesberg :CheapAir])
-       (airport-edges (alg/shortest-path airports {:start-node :Egglesberg, :end-node :Artemis,
-                                               :node-filter (fn [n] (<= 3000 (uber/attr airports n :population))),
-                                               :cost-attr :cost}))
-       '([:Egglesberg :Coulton :AirLux] [:Coulton :Artemis :ThriftyLines])
-       (airport-edges (alg/shortest-path airports {:start-node :Coulton, 
-                                               :end-node? (fn [n] (> 3000 (uber/attr airports n :population))),
-                                               :cost-attr :cost}))
-       '([:Coulton :Dentana :AirLux])
-        (airport-edges (alg/shortest-path airports {:start-nodes [:Artemis :Balela], :end-node :Dentana, :cost-attr :cost}))
-        '([:Artemis :Dentana :CheapAir])
+       3
+       (alg/cost-of-path (alg/shortest-path airports {:start-node :Egglesberg, :end-node :Artemis,
+                                                      :node-filter (fn [n] (<= 3000 (uber/attr airports n :population))),
+                                                      :cost-attr :cost}))
+       315
+       (alg/cost-of-path (alg/shortest-path airports {:start-node :Coulton, 
+                                                      :end-node? (fn [n] (> 3000 (uber/attr airports n :population))),
+                                                      :cost-attr :cost}))
+       80
+        (alg/cost-of-path (alg/shortest-path airports {:start-nodes [:Artemis :Balela], :end-node :Dentana, :cost-attr :cost}))
+        130
         (airport-edges (alg/shortest-path airports {:start-node :Dentana, :end-nodes [:Artemis :Balela], :cost-attr :cost}))
         '([:Dentana :Artemis :CheapAir])
        ))
