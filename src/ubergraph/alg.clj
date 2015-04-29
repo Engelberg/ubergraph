@@ -352,6 +352,9 @@ from one of the starting nodes to a node that satisfies the goal? predicate."
 
 (declare bellman-ford)
 
+(def ^:dynamic ^{:doc "Bind this dynamic variable to false if you prefer for shortest-path to throw an error."}
+      *auto-bellman-ford* true) 
+
 (defn shortest-path 
   "Finds the shortest path in graph g. You must specify a start node or a collection
 of start nodes from which to begin the search, however specifying an end node
@@ -444,7 +447,10 @@ shortest-path has specific arities for the two most common combinations:
         
           :else
           (least-cost-path g starting-nodes goal? cost-fn node-filter edge-filter traversal? min-cost max-cost))
-        (catch IllegalStateException e (bellman-ford g search-specification))))))
+        (catch IllegalStateException e 
+          (if *auto-bellman-ford*
+            (bellman-ford g search-specification)
+            (throw (IllegalStateException. "Found edge with negative cost. Use bellman-ford."))))))))
   
 
 ;; Algorithms similar to those in Loom, adapted for Ubergraphs
@@ -497,10 +503,15 @@ shortest-path has specific arities for the two most common combinations:
 (defn- relax-edges
   "Performs edge relaxation on all edges in weighted directed graph"
   [edges estimates cost-fn]
-  (->> edges
-       (reduce (fn [estimates edge]
-                 (relax-edge edge (cost-fn edge) estimates))
-               estimates)))
+  (let [new-estimates
+        (->> (edges)
+          (reduce (fn [estimates edge]
+                    (relax-edge edge (cost-fn edge) estimates))
+                  estimates))]
+    (if (identical? estimates new-estimates)
+      ; If no edge relaxed in this pass, we know for sure we're done
+      (reduced (with-meta new-estimates {:bellman-ford-complete true}))
+      new-estimates)))
 
 (defn- init-estimates
   "Initializes path cost estimates and paths from source to all vertices,
@@ -520,12 +531,19 @@ shortest-path has specific arities for the two most common combinations:
     [(apply assoc path-costs init-costs)
      (apply assoc backlinks init-backlinks)]))
 
-(defn- bellman-ford
-  "Given a weighted, directed graph G = (V, E) with source start,
+(defn bellman-ford
+  "Given an ubergraph g, and one or more start nodes,
 the Bellman-Ford algorithm produces an implementation of the
 IAllPathsFromSource protocol if no negative-weight cycle that is 
 reachable from the source exits, and false otherwise, indicating 
 that no solution exists.
+
+bellman-ford is very similar to shortest-path.  It is less efficient,
+but it correctly handles graphs with negative edges.  If you know you
+have edges with negative costs, use bellman-ford.  If you are unsure
+whether your graph has negative costs, or don't understand when and
+why you'd want to use bellman-ford, just use shortest-path and it
+will make the decision for you, calling this function if necessary. 
 
 Takes a search-specification map which must contain:
 Either :start-node (single node) or :start-nodes (collection)
@@ -588,18 +606,20 @@ bellman-ford has specific arity for the most common combination:
 
       (when (seq starting-nodes)
         (let [initial-estimates (init-estimates g starting-nodes node-filter)
-              edges (for [e (uber/edges g) :when (and (edge-filter e)
-                                                      (node-filter (uber/src e))
-                                                      (node-filter (uber/dest e)))]
-                      e)
+              edges (fn [] (for [n (shuffle valid-nodes)  ;shuffling nodes improves running time
+                                 :when (node-filter n)
+                                 e (uber/out-edges g n)
+                                 :when (and (edge-filter e) (node-filter (uber/dest e)))]
+                             e))
               ;;relax-edges is calculated for all edges V-1 times
-              [costs backlinks] (reduce (fn [estimates _]
-                                          (relax-edges edges estimates cost-fn))
-                                        initial-estimates
-                                        (range (dec (count valid-nodes))))]
-          (if (some
-                (fn [edge] (can-relax-edge? edge (cost-fn edge) costs))
-                edges)
+              [costs backlinks :as answer] (reduce (fn [estimates _]
+                                                     (relax-edges edges estimates cost-fn))
+                                                   initial-estimates
+                                                   (range (dec (count valid-nodes))))]
+          (if (and (not (:bellman-ford-complete (meta answer)))
+                   (some
+                     (fn [edge] (can-relax-edge? edge (cost-fn edge) costs))
+                     (edges)))
             false
             (let [backlinks (reduce (fn [links node] (if (= Double/POSITIVE_INFINITY (get costs node))
                                                        (dissoc links node)

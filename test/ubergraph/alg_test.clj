@@ -46,6 +46,13 @@
     [:b :t 3]
     [:d :t 10]))
 
+(deftest bellman-ford-test
+  (is (= {:a 0, :c -2, :d 1, :b 1, :t 4, :s 0}
+         (:least-costs (alg/bellman-ford negative-weight-example :s :weight))))
+  (is (= {:e 173, :g 403, :c 217, :j 487, :h 320, :b 85, :d 503, :f 165, :i 415, :a 0}
+         (:least-costs (alg/bellman-ford g4u :a :weight)))))
+  
+
 (deftest breadth-first-test
   (are [expected got] (= expected got)
        [:a :e :j] (alg/nodes-in-path (alg/shortest-path g4 {:start-node :a :end-node :j}))
