@@ -388,7 +388,7 @@ Note that in this case, the cost is referring to the number of edges we traverse
 
 Another possibility is to roll your own function to supply the important details of your edges:
 
-```
+```clojure
 (def airport-edge-details (juxt uber/src uber/dest #(uber/attr airports % :airline)))
 
 => (->> (alg/shortest-path airports {:start-node :Artemis, :end-node :Egglesberg})
