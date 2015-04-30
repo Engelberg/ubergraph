@@ -35,7 +35,7 @@ There are four flavors of Ubergraphs: graph, digraph, multigraph, and multidigra
 
 Graphs and Digraphs do not allow duplicate or "parallel" edges, whereas Multigraphs and Multidigraphs do.
 
-Digraphs and Multidigraphs, by default, treat new edge definitions as directed/one-way edges, whereas Graphs and Multigraphs, by default, treat new edge definitions as bidirectional.  It is possible, however, to override this default behavior and add directed edges to a an undirected graph, and undirected edges to a directed graph.
+Digraphs and Multidigraphs, by default, treat new edge definitions as directed/one-way edges, whereas Graphs and Multigraphs, by default, treat new edge definitions as bidirectional.  It is possible, however, to override this default behavior and add directed edges to an undirected graph, and undirected edges to a directed graph.
 
 <table>
   <tr>
@@ -170,7 +170,8 @@ One way that Ubergraph improves upon Loom is that graph edges have a richer impl
  #ubergraph.core.Edge{:id #uuid "5341be54-e501-4bcb-b22d-5fbcb5c828df",
                       :src :a, :dest :c}
  #ubergraph.core.UndirectedEdge{:id #uuid "8a8a69a4-f7b9-4992-b752-c3d976a32f21",
-                                :src :a, :dest :b, :mirror? false})```
+                                :src :a, :dest :b, :mirror? false})
+```
 
 The main thing to note here is that internally, all edges have a `:src` field, a `:dest` field, and a uuid, which you can think of as a pointer to the map of attributes for that edge.  The other thing to note is that undirected edges are stored internally as a pair of edge objects, one for each direction.  Both edges of the pair share the same id (and therefore, the same attribute map) and one of the edges is marked as a "mirror" edge.  This is critical because in some algorithms, we want to traverse over all edges in both directions, but in other algorithms we only want to traverse over unique edges.  Loom provides no mechanism for this, but Ubergraph makes this easy with the protocol function `mirror-edge?`, which returns true for the mirrored edge in an undirected pair of edges, and false for directed edges and the non-mirrored undirected edges.  So `(edges g)` gives you all the edges in a graph, and `(remove mirror-edge? (edges g))` would give you a sequence of unique edges, without listing both directions of the same undirected edge.
 
