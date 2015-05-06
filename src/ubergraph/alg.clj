@@ -357,7 +357,7 @@ from one of the starting nodes to a node that satisfies the goal? predicate."
 
 (declare bellman-ford)
 
-(def ^:dynamic ^{:doc "Bind this dynamic variable to false if you prefer for shortest-path to throw an error."}
+(def ^:dynamic ^{:doc "Bind this dynamic variable to false if you prefer for shortest-path to throw an error, if negative cost edge is found."}
       *auto-bellman-ford* true) 
 
 (defn shortest-path 
