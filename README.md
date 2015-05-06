@@ -63,11 +63,11 @@ All ubergraph constructors are multiple arity functions that can take an arbitra
 	+ [src dest]
 	+ [src dest weight]
 	+ [src dest attribute-map]
+	+ An edge object (from a sequence returned by `edges`, `in-edges`, or `out-edges`)
 + Adjacency map (e.g., {1 [2 3], 2 [3]} adds the edges 1->2, 1->3, and 2->3).
 + Weighted adjacency map (e.g., {:a {:b 2, :c 3}} creates an edge of weight 2 between :a and :b, etc.)
 + Attribute adjacency map (e.g., {:a {:b {:weight 2}, :c {:weight 3}}})
 + Another ubergraph
-+ An ubergraph edge object (from a sequence returned by `edges`, `in-edges`, or `out-edges`)
 + Node (anything that doesn't fit one of the other patterns is interpreted as a node)
 
 Edge description inits automatically add the src and dest nodes, so you don't need to specify nodes explicitly unless you want to create an isolated, unconnected node, or you want to use the [node attribute-map] form to initialize a node with a given attribute map.
@@ -132,7 +132,7 @@ Graph
 	 :a <-> :b {:weight 2, :price 200, :distance 10}
 ```
 
-You can extend graphs with more "inits" by using `build-graph`, or you can use `add-nodes`, `add-nodes-with-attrs` (which takes [node attr-map] pairs), or `add-edges` (which takes any legal edge descriptor, i.e., [src dest], [src dest weight], or [src dest attr-map]).  `add-nodes*`, `add-nodes-with-attrs*` and `add-edges*` are variants which take sequences rather than multiple args.
+You can extend graphs with more "inits" by using `build-graph`, or you can use `add-nodes`, `add-nodes-with-attrs` (which takes only [node attr-map] inits), or `add-edges` (which takes [src dest], [src dest weight], or [src dest attr-map] inits).  `add-nodes*`, `add-nodes-with-attrs*` and `add-edges*` are variants which take sequences rather than multiple args.
 
 ```clojure
 (build-graph graph1 [:d :a] [:d :e])
