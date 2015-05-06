@@ -293,19 +293,19 @@
     :else (assoc-in g [:node-map node] (->NodeInfo {} {} 0 0))))
 
 (defn- add-node-with-attrs
-  "node-with-attrs might either be a [node attr-map] pair, or a plain node.
-^:node metadata forces interpretation as plain node"
-  [g node-with-attrs]
-  (cond
-    (:node (meta node-with-attrs)) (add-node g node-with-attrs),
-    
-    (and (vector? node-with-attrs)
-         (= (count node-with-attrs) 2)
-         (map? (node-with-attrs 1)))
-    (let [[node attr-map] node-with-attrs]
-      (add-attrs (add-node g node) node attr-map))
-    
-    :else (add-node g node-with-attrs)))  
+  "Adds node to g with a given attribute map. Takes a [node attribute-map] pair."
+  [g [node attr-map]]
+  (add-attrs (add-node g node) node attr-map))
+
+(defn add-nodes-with-attrs*
+  "Takes a sequence of [node attr-map] pairs, and adds them to graph g."
+  [g nodes-with-attrs]
+  (reduce add-node-with-attrs g nodes-with-attrs))
+
+(defn add-nodes-with-attrs
+  "Takes any number of [node attr-map] pairs, and adds them to graph g."
+  [g & nodes-with-attrs]
+  (add-nodes-with-attrs* g nodes-with-attrs))
 
 (defn- remove-node
   [g node]
@@ -526,14 +526,14 @@ and edge descriptions of the form [src dest], [src dest weight], or [src dest at
 Also can build from other ubergraphs, and from adjacency maps using the same adjacency map 
 notation as Loom's build-graph.
 
-Use ^:node and ^:edge metadata to resolve ambiguous inits, or use the more
-precise add-nodes and add-edges API."
+Use ^:node and ^:edge metadata to resolve ambiguous inits, or build your graph with the more
+precise add-nodes, add-nodes-with-attrs, and add-edges functions."
   [g & inits]
   (letfn [(build [g init]
             (cond
               ;; ubergraph
               (instance? Ubergraph init)
-              (let [new-g (add-nodes* g (nodes-with-attrs init)),                         
+              (let [new-g (add-nodes-with-attrs* g (nodes-with-attrs init)),                         
                     directed-edges (for [e (edges init)
                                          :when (directed-edge? e)]
                                      [(src e) (dest e) (attrs init e)])
@@ -663,12 +663,6 @@ Undirected edges are counted only once."
 (alter-meta! #'map->Edge assoc :no-doc true)
 (alter-meta! #'map->NodeInfo assoc :no-doc true)
 (alter-meta! #'map->UndirectedEdge assoc :no-doc true)
-
-;; Refine doc string for add-nodes, which comes from Loom namespace
-(alter-meta! #'add-nodes :doc 
-  "Add nodes to graph g. Nodes can be any type of object, but objects of the form
-  [node-label attribute-map] will be interpreted as adding a node with a given
-  attribute-map unless marked with ^:node metadata.")             
 
 ;; Equality is more complicated
 
