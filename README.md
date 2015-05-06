@@ -18,7 +18,7 @@ Ubergraph is a great choice for people who:
 
 Add the following line to your leiningen dependencies:
 
-	[ubergraph "0.1.0"]
+	[ubergraph "0.1.1"]
 
 Require ubergraph in your namespace header:
 
@@ -57,18 +57,26 @@ Digraphs and Multidigraphs, by default, treat new edge definitions as directed/o
 
 All ubergraph constructors are multiple arity functions that can take an arbitrary number of "inits" where an init is defined as one of:
 
++ Node with attributes
+    + [node attribute-map]
 + Edge description:
 	+ [src dest]
 	+ [src dest weight]
 	+ [src dest attribute-map]
 + Adjacency map (e.g., {1 [2 3], 2 [3]} adds the edges 1->2, 1->3, and 2->3).
 + Weighted adjacency map (e.g., {:a {:b 2, :c 3}} creates an edge of weight 2 between :a and :b, etc.)
++ Attribute adjacency map (e.g., {:a {:b {:weight 2}, :c {:weight 3}}})
 + Another ubergraph
++ An ubergraph edge object (from a sequence returned by `edges`, `in-edges`, or `out-edges`)
 + Node (anything that doesn't fit one of the other patterns is interpreted as a node)
+
+Edge description inits automatically add the src and dest nodes, so you don't need to specify nodes explicitly unless you want to create an isolated, unconnected node, or you want to use the [node attribute-map] form to initialize a node with a given attribute map.
+
+It is often convenient that the ubergraph constructors can take so many different kinds of "inits", but as you can see, there is some inherent ambiguity.  Should we interpret `[{:a 1} {:b 2}]` as a node labeled `[{:a 1} {:b 2}]`, or as a node `{:a 1}` with attribute map `{:b 2}`, or as an edge between two nodes `{:a 1}` and `{:b 2}`?  In this particular case, Ubergraph would interpret the ambiguous init as a [node attribute-map] form (resolution of conflicts is in the order listed above), but you can force the other interpretations by adding ^:node or ^:edge metadata, i.e., `^:node [{:a 1} {:b 2}]` would be interpreted as a node labeled `[{:a 1} {:b 2}]` and `^:edge [{:a 1} {:b 2}]` would be interpreted as an edge between two nodes.  Alternatively, you can construct an empty ubergraph and build it up with the unambiguous functions `add-nodes`, `add-nodes-with-attrs`, or `add-edges`.
 
 ### Graphs
 
-Ubergraphs built with the graph constructor treat every edge as a bidirectional, undirected edge.
+Ubergraphs built with the `graph` constructor treat every edge as a bidirectional, undirected edge.
 
 ```clojure
 (def graph1
@@ -124,7 +132,7 @@ Graph
 	 :a <-> :b {:weight 2, :price 200, :distance 10}
 ```
 
-You can extend graphs with more "inits" by using `build-graph`, or you can use `add-nodes` or `add-edges` (which takes any legal edge descriptors).  `add-nodes*` and `add-edges*` are variants which take a sequence of nodes/edges rather than multiple args.
+You can extend graphs with more "inits" by using `build-graph`, or you can use `add-nodes`, `add-nodes-with-attrs` (which takes [node attr-map] pairs), or `add-edges` (which takes any legal edge descriptor, i.e., [src dest], [src dest weight], or [src dest attr-map]).  `add-nodes*`, `add-nodes-with-attrs*` and `add-edges*` are variants which take sequences rather than multiple args.
 
 ```clojure
 (build-graph graph1 [:d :a] [:d :e])
@@ -132,6 +140,8 @@ You can extend graphs with more "inits" by using `build-graph`, or you can use `
 (add-edges* graph1 [[:d :a] [:d :e]])
 (add-nodes graph1 :e)
 (add-nodes* graph1 [:e])
+(add-nodes-with-attrs graph1 [:a {:happy true}] [:b {:sad true}])
+(add-nodes-with-attrs* graph1 [[:a {:happy true}] [:b {:sad true}]])
 ```
 
 Adding nodes that already exist will do nothing.  Graphs do not permit "parallel edges", so adding edges that already exist will cause the new attribute map to be merged with the existing one.  However, if you really want to, you can add a directed edge to an undirected graph with `add-directed-edges` or `add-directed-edges*`:
@@ -179,11 +189,11 @@ When writing algorithms over edges, it is strongly recommended that you access t
 
 ### Digraphs
 
-Digraphs (short for "directed graphs") behave similarly to Graphs, but by default, they add edges as one-way directed edges.  All the same functions apply to directed graphs.  You can add undirected edges to a directed graph with `add-undirected-edges` or `add-undirected-edges*`.
+Digraphs (short for "directed graphs") are built with the `digraph` constructor.  Digraphs behave similarly to Graphs, but by default, they add edges as one-way directed edges.  All the same functions apply to directed graphs.  You can add undirected edges to a directed graph with `add-undirected-edges` or `add-undirected-edges*`.
 
 ### Multigraphs
 
-Multigraphs allow "parallel edges" between pairs of nodes.  This is where Ubergraph really shines over Loom.  The crux of the problem with Loom is that throughout Loom's implementation, the protocols and algorithms are hardcoded with the notion that an edge is uniquely described by its source and destination.  This completely breaks down when you're dealing with multigraphs.
+Multigraphs (built with the `multigraph` constructor) allow "parallel edges" between pairs of nodes.  This is where Ubergraph really shines over Loom.  The crux of the problem with Loom is that throughout Loom's implementation, the protocols and algorithms are hardcoded with the notion that an edge is uniquely described by its source and destination.  This completely breaks down when you're dealing with multigraphs.
 
 We've already seen one way that Ubergraph solves this problem: Ubergraph identifies edges not only by a src and a dest, but also by a unique id.  This allows it to store multiple edges between a given src and dest, each with its own id which can be used to look up its set of attributes.
 
@@ -231,7 +241,7 @@ When you don't supply :src and :dest, the query won't be particularly efficient,
 
 ### Multidigraphs
 
-Multidigraphs are, as you'd expect, the directed-as-default version of multigraphs.
+Multidigraphs, as you'd expect, are built with the `multidigraph` constructor and are the directed-as-default version of multigraphs.
 
 ### Equality
 
@@ -301,21 +311,23 @@ This map was generated from the following graph:
 ```clojure
 (def airports
   (-> (uber/multigraph
-        [:Artemis :Balela {:color :blue, :airline :CheapAir, :price 200, :distance 40}]
-        [:Artemis :Balela {:color :green, :airline :ThriftyLines, :price 167, :distance 40}]
-        [:Artemis :Coulton {:color :green, :airline :ThriftyLines, :price 235, :distance 120}]
-        [:Artemis :Dentana {:color :blue, :airline :CheapAir, :price 130, :distance 160}]
-        [:Balela :Coulton {:color :green, :airline :ThriftyLines, :price 142, :distance 70}]
-        [:Balela :Egglesberg {:color :blue, :airline :CheapAir, :price 350, :distance 50}])
+        ; city attributes
+        [:Artemis {:population 3000}]
+        [:Balela {:population 2000}]
+        [:Coulton {:population 4000}]
+        [:Dentana {:population 1000}]
+        [:Egglesberg {:population 5000}]
+        ; airline routes
+        [:Artemis :Balela {:color :blue, :airline :CheapAir, :cost 200, :distance 40}]
+        [:Artemis :Balela {:color :green, :airline :ThriftyLines, :cost 167, :distance 40}]
+        [:Artemis :Coulton {:color :green, :airline :ThriftyLines, :cost 235, :distance 120}]
+        [:Artemis :Dentana {:color :blue, :airline :CheapAir, :cost 130, :distance 160}]
+        [:Balela :Coulton {:color :green, :airline :ThriftyLines, :cost 142, :distance 70}]
+        [:Balela :Egglesberg {:color :blue, :airline :CheapAir, :cost 350, :distance 50}])
     (uber/add-directed-edges
-      [:Dentana :Egglesberg {:color :red, :airline :AirLux, :price 80, :distance 50}]
-      [:Egglesberg :Coulton {:color :red, :airline :AirLux, :price 80, :distance 30}]
-      [:Coulton :Dentana {:color :red, :airline :AirLux, :price 80, :distance 65}])
-    (uber/add-attr :Artemis :population 3000)
-    (uber/add-attr :Balela :population 2000)
-    (uber/add-attr :Coulton :population 4000)
-    (uber/add-attr :Dentana :population 1000)
-    (uber/add-attr :Egglesberg :population 5000)))
+      [:Dentana :Egglesberg {:color :red, :airline :AirLux, :cost 80, :distance 50}]
+      [:Egglesberg :Coulton {:color :red, :airline :AirLux, :cost 80, :distance 30}]
+      [:Coulton :Dentana {:color :red, :airline :AirLux, :cost 80, :distance 65}])))
 
 => (uber/pprint airports)
 Multigraph

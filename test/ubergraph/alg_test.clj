@@ -164,11 +164,30 @@
     (uber/add-attr :Dentana :population 1000)
     (uber/add-attr :Egglesberg :population 5000)))
 
+(def airportsv2
+  (-> (uber/multigraph
+        ; city attributes
+        [:Artemis {:population 3000}]
+        [:Balela {:population 2000}]
+        [:Coulton {:population 4000}]
+        [:Dentana {:population 1000}]
+        [:Egglesberg {:population 5000}]
+        ; airline routes
+        [:Artemis :Balela {:color :blue, :airline :CheapAir, :cost 200, :distance 40}]
+        [:Artemis :Balela {:color :green, :airline :ThriftyLines, :cost 167, :distance 40}]
+        [:Artemis :Coulton {:color :green, :airline :ThriftyLines, :cost 235, :distance 120}]
+        [:Artemis :Dentana {:color :blue, :airline :CheapAir, :cost 130, :distance 160}]
+        [:Balela :Coulton {:color :green, :airline :ThriftyLines, :cost 142, :distance 70}]
+        [:Balela :Egglesberg {:color :blue, :airline :CheapAir, :cost 350, :distance 50}])
+    (uber/add-directed-edges 
+      [:Dentana :Egglesberg {:color :red, :airline :AirLux, :cost 80, :distance 50}]
+      [:Egglesberg :Coulton {:color :red, :airline :AirLux, :cost 80, :distance 30}]
+      [:Coulton :Dentana {:color :red, :airline :AirLux, :cost 80, :distance 65}])))
+
 (def ^:private airport-edge-details (juxt uber/src uber/dest #(uber/attr airports % :airline)))
 
 (defn- airport-edges [path]
   (map airport-edge-details (alg/edges-in-path path)))
-
 
 ;Need to figure out how to make these tests more robust, because the specific paths among equal possibilities
 ;can vary from one run to the next 
@@ -204,6 +223,8 @@
         130
         (airport-edges (alg/shortest-path airports {:start-node :Dentana, :end-nodes [:Artemis :Balela], :cost-attr :cost}))
         '([:Dentana :Artemis :CheapAir])
+        
+        airports airportsv2
        ))
 
 

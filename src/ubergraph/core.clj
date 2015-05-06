@@ -523,8 +523,7 @@ it is an edge."
 (defn build-graph
   "Builds graphs using node descriptions of the form node-label or [node-label attribute-map]
 and edge descriptions of the form [src dest], [src dest weight], or [src dest attribute-map].  
-Also can build from other ubergraphs, and from adjacency maps using the same adjacency map 
-notation as Loom's build-graph.
+Also can build from other ubergraphs, ubergraph edge objects, and from adjacency maps.
 
 Use ^:node and ^:edge metadata to resolve ambiguous inits, or build your graph with the more
 precise add-nodes, add-nodes-with-attrs, and add-edges functions."
@@ -580,9 +579,14 @@ precise add-nodes, add-nodes-with-attrs, and add-edges functions."
                   (add-nodes* (keys init))
                   (add-edges* es)))
               
+              ;; node-with-attributes
+              (and (vector? init) (= 2 (count init)) (map? (init 1)))
+              (add-node-with-attrs g [(init 0) (init 1)])
+              
               ;; edge description
               (and (vector? init) (#{2,3} (count init)))
-              (add-edge g [(init 0) (init 1) (number->map (get init 2))])             
+              (add-edge g [(init 0) (init 1) (number->map (get init 2))])
+              
               ;; node
               :else (add-node g init)))]
     (reduce build g (strip-equal-id-edges inits))))
