@@ -164,7 +164,7 @@ Graph
 Ubergraph supports all of Loom's protocols, so you can do all the things you'd expect to be able to do to graphs:
 nodes, edges, has-node?, has-edge?, successors, out-degree, out-edges, predecessors, in-degree, in-edges, transpose, weight, add-nodes, add-nodes\*, add-edges, add-edges\*, remove-nodes, remove-nodes\*, remove-edges, remove-edges\*, and remove-all.
 
-Ubergraph also supports the ability to lookup, add, and remove attributes to any node or edge in the graph via: add-attr, remove-attr, attr, and attrs.
+Ubergraph also supports the ability to lookup attributes on any node or edge in the graph with `attr` and `attrs`, add attributes with `add-attr` and `add-attrs`, remove attributes  with `remove-attr` and `remove-attrs`, and set the attribute map (overwriting the existing attribute map) with `set-attrs`.
 
 #### Edges
 
