@@ -52,6 +52,10 @@
    ; QueryableGraph protocol
    find-edges
    find-edge
+   ; Attrs protocol
+   add-attrs
+   remove-attrs
+   set-attrs
    ; MixedDirectionEdgeTests protocol
    undirected-edge?
    directed-edge?
@@ -153,7 +157,7 @@
   la/AttrGraph
   (add-attr [g node-or-edge k v] 
     (assoc-in g [:attrs (resolve-node-or-edge g node-or-edge) k] v))
-  (add-attr [g n1 n2 k v] (add-attr g (get-edge g n1 n2) k v))
+  (add-attr [g n1 n2 k v] (add-attr g (get-edge g n1 n2) k v))  
   (remove-attr [g node-or-edge k] 
     (update-in g [:attrs (resolve-node-or-edge g node-or-edge)] dissoc k))
   (remove-attr [g n1 n2 k] (remove-attr g (get-edge g n1 n2) k))
@@ -163,6 +167,24 @@
   (la/attrs [g node-or-edge] 
     (get-in g [:attrs (resolve-node-or-edge g node-or-edge)] {}))
   (la/attrs [g n1 n2] (la/attrs g (get-edge g n1 n2)))
+  
+  up/Attrs
+  (add-attrs [g node-or-edge attribute-map]
+    (update-in g [:attrs (resolve-node-or-edge g node-or-edge)]
+              merge attribute-map))
+  (add-attrs [g n1 n2 attribute-map]
+    (add-attrs g (get-edge g n1 n2) attribute-map))
+  (set-attrs [g node-or-edge attribute-map]
+    (assoc-in g [:attrs (resolve-node-or-edge g node-or-edge)] attribute-map))
+  (set-attrs [g n1 n2 attribute-map]
+    (set-attrs g (get-edge g n1 n2) attribute-map))
+
+  (remove-attrs [g node-or-edge attributes]
+    (let [m (la/attrs g node-or-edge)]
+      (assoc-in g [:attrs (resolve-node-or-edge g node-or-edge)]
+                (apply dissoc m attributes))))
+  (remove-attrs [g n1 n2 attributes]
+    (remove-attrs g (get-edge n1 n2) attributes))
   
   up/UndirectedGraph
   (other-direction [g edge]
@@ -269,6 +291,21 @@
   (cond
     (get-in g [:node-map node]) g  ; node already exists
     :else (assoc-in g [:node-map node] (->NodeInfo {} {} 0 0))))
+
+(defn- add-node-with-attrs
+  "node-with-attrs might either be a [node attr-map] pair, or a plain node.
+^:node metadata forces interpretation as plain node"
+  [g node-with-attrs]
+  (cond
+    (:node (meta node-with-attrs)) (add-node g node-with-attrs),
+    
+    (and (vector? node-with-attrs)
+         (= (count node-with-attrs) 2)
+         (map? (node-with-attrs 1)))
+    (let [[node attr-map] node-with-attrs]
+      (add-attrs (add-node g node) node attr-map))
+    
+    :else (add-node g node-with-attrs)))  
 
 (defn- remove-node
   [g node]
@@ -479,61 +516,75 @@ it is an edge."
           :else (cons init (lazy-seq (strip-equal-id-edges
                                        (next inits)
                                        seen-ids))))))))
-                                                
 
-  (defn build-graph
-  "Builds graphs using nodes and edge descriptions of the form [src dest], 
-[src dest weight], or [src dest attribute-map].  Also can build from other
-ubergraphs, and from adjacency maps using the same adjacency map notation 
-as Loom's build-graph."
+(defn- nodes-with-attrs [g]
+  (for [n (nodes g)] [n (attrs g n)]))
+
+(defn build-graph
+  "Builds graphs using node descriptions of the form node-label or [node-label attribute-map]
+and edge descriptions of the form [src dest], [src dest weight], or [src dest attribute-map].  
+Also can build from other ubergraphs, and from adjacency maps using the same adjacency map 
+notation as Loom's build-graph.
+
+Use ^:node and ^:edge metadata to resolve ambiguous inits, or use the more
+precise add-nodes and add-edges API."
   [g & inits]
   (letfn [(build [g init]
-                 (cond
-                   ;; ubergraph
-                   (instance? Ubergraph init)
-                   (let [new-g (add-nodes* g (nodes init)),
-                         directed-edges (for [e (edges init)
-                                              :when (directed-edge? e)]
-                                          [(src e) (dest e) (attrs init e)])
-                         undirected-edges (for [e (edges init),
-                                                :when (and (undirected-edge? e)
-                                                           (not (mirror-edge? e)))]
-                                            [(src e) (dest e) (attrs init e)])
-                         new-g (add-directed-edges* new-g directed-edges)
-                         new-g (add-undirected-edges* new-g undirected-edges)]
-                     new-g)
-                 
-                     ;; Edge objects
-                     (directed-edge? init)
-                     (let [new-g (add-nodes g (src init) (dest init)),
-                           new-g (add-directed-edges g [(src init) (dest init)
-                                                        (attrs (meta init) init)])]
-                       new-g)
-                   
-                     (undirected-edge? init)
-                     (let [new-g (add-nodes g (src init) (dest init)),
-                         new-g (add-undirected-edges g [(src init) (dest init)
-                                                        (attrs (meta init) init)])]
-                     new-g)                   
-
-                   ;; Adjacency map
-                     (map? init)
-                   (let [es (if (map? (val (first init)))
-                              (for [[n nbrs] init
-                                    [nbr wt] nbrs]
-                                [n nbr wt])
-                              (for [[n nbrs] init
-                                    nbr nbrs]
-                                [n nbr]))]
-                     (-> g
-                       (add-nodes* (keys init))
-                       (add-edges* es)))
-                   
-                   ;; edge description
-                     (and (vector? init) (#{2,3} (count init)))
-                   (add-edge g [(init 0) (init 1) (number->map (get init 2))])             
-                   ;; node
-                     :else (add-node g init)))]
+            (cond
+              ;; ubergraph
+              (instance? Ubergraph init)
+              (let [new-g (add-nodes* g (nodes-with-attrs init)),                         
+                    directed-edges (for [e (edges init)
+                                         :when (directed-edge? e)]
+                                     [(src e) (dest e) (attrs init e)])
+                    undirected-edges (for [e (edges init),
+                                           :when (and (undirected-edge? e)
+                                                      (not (mirror-edge? e)))]
+                                       [(src e) (dest e) (attrs init e)])
+                    new-g (add-directed-edges* new-g directed-edges)
+                    new-g (add-undirected-edges* new-g undirected-edges)]
+                new-g)
+              
+              ;; Edge objects
+              (directed-edge? init)
+              (let [new-g (add-nodes g (src init) (dest init)),
+                    new-g (add-directed-edges g [(src init) (dest init)
+                                                 (attrs (meta init) init)])]
+                new-g)
+              
+              (undirected-edge? init)
+              (let [new-g (add-nodes g (src init) (dest init)),
+                    new-g (add-undirected-edges g [(src init) (dest init)
+                                                   (attrs (meta init) init)])]
+                new-g)
+              
+              ;; Marked as a node
+              (:node (meta init))
+              (add-node g init)
+              
+              ;; Marked as an edge
+              (:edge (meta init))
+              (let [[src dest n] init]
+                (add-edge g [src dest (number->map n)]))                                
+              
+              ;; Adjacency map
+              (map? init)
+              (let [es (if (map? (val (first init)))
+                         (for [[n nbrs] init
+                               [nbr wt] nbrs]
+                           [n nbr wt])
+                         (for [[n nbrs] init
+                               nbr nbrs]
+                           [n nbr]))]
+                (-> g
+                  (add-nodes* (keys init))
+                  (add-edges* es)))
+              
+              ;; edge description
+              (and (vector? init) (#{2,3} (count init)))
+              (add-edge g [(init 0) (init 1) (number->map (get init 2))])             
+              ;; node
+              :else (add-node g init)))]
     (reduce build g (strip-equal-id-edges inits))))
 
 ;; All of these graph options can also serve as weighted graphs, just initialize accordingly.
@@ -612,6 +663,12 @@ Undirected edges are counted only once."
 (alter-meta! #'map->Edge assoc :no-doc true)
 (alter-meta! #'map->NodeInfo assoc :no-doc true)
 (alter-meta! #'map->UndirectedEdge assoc :no-doc true)
+
+;; Refine doc string for add-nodes, which comes from Loom namespace
+(alter-meta! #'add-nodes :doc 
+  "Add nodes to graph g. Nodes can be any type of object, but objects of the form
+  [node-label attribute-map] will be interpreted as adding a node with a given
+  attribute-map unless marked with ^:node metadata.")             
 
 ;; Equality is more complicated
 

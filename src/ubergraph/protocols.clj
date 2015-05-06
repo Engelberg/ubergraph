@@ -43,6 +43,12 @@
   (add-directed-edges* [g edges] "Adds directed edges regardless of the graph's undirected/directed default")
   (add-undirected-edges* [g edges] "Adds undirected edges regardless of the graph's undirected/directed default"))
 
+; Improved attribute handling
+
+(defprotocol Attrs
+  (add-attrs [g node-or-edge attribute-map] [g n1 n2 attribute-map] "Merges an attribute map with the existing attributes of a node or edge")
+  (set-attrs [g node-or-edge attribute-map] [g n1 n2 attribute-map] "Sets the attribute map of a node or edge, overwriting existing attribute map")  
+  (remove-attrs [g node-or-edge attributes] [g n1 n2 attributes] "Removes the attributes from the node or edge"))
 
 ; Path protocols
 
