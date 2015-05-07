@@ -29,6 +29,10 @@ Ubergraph lists loom as a dependency, so when you add ubergraph to your project,
 
 For example, rather than calling `loom.graph/out-edges` and `loom.attr/add-attr`, you can just call `uber/out-edges` and `uber/add-attr`.
 
+### API
+
+When you are done reading this README, check out the [Codox-generated docs for the Ubergraph API.](http://engelberg.github.io/ubergraph/index.html)
+
 ## Usage
 
 There are four flavors of Ubergraphs: graph, digraph, multigraph, and multidigraph.  All share the same underlying representation, but have different default behaviors with respect to adding new edges and attributes.  Specifically:
@@ -572,10 +576,6 @@ Last but not least, `shortest-path` can handle edges with negative costs.  If it
 Note: If you call `shortest-path` on a graph with a negative-weight *cycle*, the function will return false.
 
 All of Ubergraph's algorithms, including the new `shortest-path`, should be backwards-comaptible with Loom's graphs.
-
-### API
-
-See the [Codox-generated docs for the Ubergraph API](http://engelberg.github.io/ubergraph/index.html)
 
 ## Relationship to Loom
 
