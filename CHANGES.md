@@ -1,5 +1,11 @@
 # Ubergraph Change Log
 
+## 0.1.2
+
+### Bug Fixes
+
+* least-cost searches didn't work if nodes weren't comparable, e.g., maps
+
 ## 0.1.1
 
 ### Enhancements

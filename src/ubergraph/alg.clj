@@ -267,7 +267,7 @@ from one of the starting nodes to a node that satisfies the goal? predicate."
   [g starting-nodes goal? cost-fn node-filter edge-filter traverse? min-cost max-cost]
   (let [least-costs (HashMap.),
         backlinks (HashMap.)
-        queue (PriorityQueue.)]
+        queue (PriorityQueue. (fn [x y] (compare (x 0) (y 0))))]
     (doseq [node starting-nodes :when (and (uber/has-node? g node) (node-filter node))]
       (.put least-costs node 0)
       (.put backlinks node ())
@@ -346,7 +346,7 @@ from one of the starting nodes to a node that satisfies the goal? predicate."
   [g starting-nodes goal? cost-fn heuristic-fn node-filter edge-filter traverse? min-cost max-cost]
   (let [least-costs (HashMap.),
         backlinks (HashMap.)
-        queue (PriorityQueue.)]
+        queue (PriorityQueue. (fn [x y] (compare (x 0) (y 0))))]
     (doseq [node starting-nodes :when (and (uber/has-node? g node) (node-filter node))]
       (.put least-costs node 0)
       (.put backlinks node ())
