@@ -728,7 +728,7 @@ Undirected edges are counted only once."
 ; Dorothy has a bug - it doesn't escape backslashes, so we do it here
 (defn- escape-backslashes [s] (clojure.string/replace s "\\" "\\\\"))
 
-(defn label [g]
+(defn- label [g]
   (as-> g $
     (reduce 
       (fn [g n]
