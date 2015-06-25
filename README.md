@@ -322,16 +322,16 @@ This map was generated from the following graph:
         [:Dentana {:population 1000}]
         [:Egglesberg {:population 5000}]
         ; airline routes
-        [:Artemis :Balela {:color :blue, :airline :CheapAir, :cost 200, :distance 40}]
-        [:Artemis :Balela {:color :green, :airline :ThriftyLines, :cost 167, :distance 40}]
-        [:Artemis :Coulton {:color :green, :airline :ThriftyLines, :cost 235, :distance 120}]
-        [:Artemis :Dentana {:color :blue, :airline :CheapAir, :cost 130, :distance 160}]
-        [:Balela :Coulton {:color :green, :airline :ThriftyLines, :cost 142, :distance 70}]
-        [:Balela :Egglesberg {:color :blue, :airline :CheapAir, :cost 350, :distance 50}])
+        [:Artemis :Balela {:color :blue, :airline :CheapAir, :price 200, :distance 40}]
+        [:Artemis :Balela {:color :green, :airline :ThriftyLines, :price 167, :distance 40}]
+        [:Artemis :Coulton {:color :green, :airline :ThriftyLines, :price 235, :distance 120}]
+        [:Artemis :Dentana {:color :blue, :airline :CheapAir, :price 130, :distance 160}]
+        [:Balela :Coulton {:color :green, :airline :ThriftyLines, :price 142, :distance 70}]
+        [:Balela :Egglesberg {:color :blue, :airline :CheapAir, :price 350, :distance 50}])
     (uber/add-directed-edges
-      [:Dentana :Egglesberg {:color :red, :airline :AirLux, :cost 80, :distance 50}]
-      [:Egglesberg :Coulton {:color :red, :airline :AirLux, :cost 80, :distance 30}]
-      [:Coulton :Dentana {:color :red, :airline :AirLux, :cost 80, :distance 65}])))
+      [:Dentana :Egglesberg {:color :red, :airline :AirLux, :price 80, :distance 50}]
+      [:Egglesberg :Coulton {:color :red, :airline :AirLux, :price 80, :distance 30}]
+      [:Coulton :Dentana {:color :red, :airline :AirLux, :price 80, :distance 65}])))
 
 => (uber/pprint airports)
 Multigraph
