@@ -711,19 +711,38 @@ Undirected edges are counted only once."
       val)))
         
 ;; Visualization
-(defn- label [g]
-  (println "Label")
+
+; Dorothy doesn't like attribute maps with values other than numbers, strings, and keywords
+
+(defn- valid-dorothy-id? [x]
+  (or (keyword? x) (string? x) (number? x)))
+
+(defn- remove-invalids-from-map [m]
+  (into (empty m) (for [[k v] m :when (and (valid-dorothy-id? k)
+                                           (valid-dorothy-id? v))]
+                    [k v])))
+
+(defn- safe-attrs [g i]
+  (stringify-map (attrs g i)))
+
+(defn- sanitize-attrs [g i]
+  (remove-invalids-from-map (attrs g i)))
+
+; Dorothy has a bug - it doesn't escape backslashes, so we do it here
+(defn- escape-backslashes [s] (clojure.string/replace s "\\" "\\\\"))
+
+(defn label [g]
   (as-> g $
     (reduce 
       (fn [g n]
         (add-attr g n :label (str (if (keyword? n) (name n) n) 
                                   \newline 
-                                  (with-out-str (clojure.pprint/pprint (attrs g n))))))
+                                  (escape-backslashes (with-out-str (clojure.pprint/pprint (attrs g n)))))))
       $ (nodes g))
     (reduce
       (fn [g e]
         (if (not (mirror-edge? e)) 
-          (add-attr g e :label (with-out-str (clojure.pprint/pprint (attrs g e))))
+          (add-attr g e :label (escape-backslashes (with-out-str (clojure.pprint/pprint (attrs g e)))))
           g))
       $ (edges g)))) 
 
@@ -742,7 +761,6 @@ Takes an optional map which can contain:
   ([g {layout :layout {filename :filename format :format :as save} :save
        auto-label :auto-label
        :or {layout :dot}}]
-    (println auto-label)
     (let [g (if auto-label (label g) g)          
           ns (nodes g),
           es (edges g)
@@ -751,14 +769,14 @@ Takes an optional map which can contain:
                            (keyword? n)
                            (number? n))
                      n
-                     (str n))
-                   (attrs g n)]),
+                     (print-str n))
+                   (safe-attrs g n)]),
           directed-edges (for [e es :when (directed-edge? e)]
-                           [(src e) (dest e) (attrs g e)])
+                           [(src e) (dest e) (sanitize-attrs g e)])
           undirected-edges (for [e es :when (and (undirected-edge? e)
                                                  (not (mirror-edge? e)))]
                              [(src e) (dest e)
-                              (merge {:dir :none} (attrs g e))])]
+                              (merge {:dir :none} (sanitize-attrs g e))])]
       (-> (concat [{:layout layout}] 
                   nodes directed-edges undirected-edges)
         d/digraph
