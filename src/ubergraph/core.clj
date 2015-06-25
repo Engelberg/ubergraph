@@ -722,9 +722,6 @@ Undirected edges are counted only once."
                                            (valid-dorothy-id? v))]
                     [k v])))
 
-(defn- safe-attrs [g i]
-  (stringify-map (attrs g i)))
-
 (defn- sanitize-attrs [g i]
   (remove-invalids-from-map (attrs g i)))
 
@@ -770,7 +767,7 @@ Takes an optional map which can contain:
                            (number? n))
                      n
                      (print-str n))
-                   (safe-attrs g n)]),
+                   (sanitize-attrs g n)]),
           directed-edges (for [e es :when (directed-edge? e)]
                            [(src e) (dest e) (sanitize-attrs g e)])
           undirected-edges (for [e es :when (and (undirected-edge? e)

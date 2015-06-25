@@ -1,5 +1,11 @@
 # Ubergraph Change Log
 
+## 0.1.3
+
+### Bug Fixes
+
+* Fixed printing of attributes that are classes, records, or strings with special characters
+
 ## 0.1.2
 
 ### Bug Fixes
