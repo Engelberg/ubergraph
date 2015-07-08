@@ -5,6 +5,7 @@
             [loom.attr :as la]
             [ubergraph.protocols :as up]
             [dorothy.core :as d]
+            [clojure.pprint]
             ))
 
 (import-vars 
