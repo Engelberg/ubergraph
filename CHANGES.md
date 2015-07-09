@@ -1,5 +1,11 @@
 # Ubergraph Change Log
 
+## 0.1.4
+
+### Bug Fixes
+
+* Added clojure.pprint as an explicit require, which helps with certain compilation scenarios.
+
 ## 0.1.3
 
 ### Bug Fixes
