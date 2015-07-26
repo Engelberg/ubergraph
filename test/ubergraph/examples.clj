@@ -39,4 +39,15 @@
        (uber/remove-edges graph1 [:d :b])
        (uber/graph [:a :b] [:a :c] :d)
        
+       (uber/graph [:a {:counter 1}])
+       (uber/graph [:a {:counter 1}])       
        ))       
+
+(deftest test-notequal-graphs?
+  (let [g (uber/graph :a)]
+    (is (not= (uber/set-attrs g :a {:counter 1})
+              (uber/set-attrs g :a {:counter 2})))
+    (is (not= (uber/graph [:a :b {:weight 2 :cost 200 :distance 10}]
+                          [:a :c {:weight 3 :cost 300 :distance 20}])
+              (uber/graph [:a :b {:weight 2 :cost 200 :distance 10}]
+                          [:a :c {:weight 3 :cost 400 :distance 20}])))))

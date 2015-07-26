@@ -685,6 +685,14 @@ Undirected edges are counted only once."
     (frequencies (for [edge es]
                    (assoc edge :id (attrs g edge))))))
 
+(defn- node-attrs [g]
+  (if (pos? (count (:attrs g))) ; only bother with this step if graph has attributes
+    (select-keys (:attrs g) (nodes g))
+    {}))
+
+(defn- equal-nodes? [g1 g2]
+  (= (node-attrs g1) (node-attrs g2)))
+
 (defn- equal-graphs? [^Ubergraph g1 ^Ubergraph g2]
   (or (.equals g1 g2)
       (and
@@ -695,6 +703,7 @@ Undirected edges are counted only once."
         (= (count (:attrs g1)) (count (:attrs g2)))
         (= (nodes g1) (nodes g2))
         (= (count-edges g1) (count-edges g2))
+        (equal-nodes? g1 g2)
         (every? identity
                 (for [node1 (nodes g1),
                       node2 (successors g1 node1)]
@@ -706,6 +715,7 @@ Undirected edges are counted only once."
     (if (= val -1)
       (let [ns (nodes g),
             code (hash {:nodes ns,
+                        :node-attrs (node-attrs g),
                         :edges (edges-freqs g)})]
         (reset! h code)
         code)

@@ -1,5 +1,11 @@
 # Ubergraph Change Log
 
+## 0.1.5
+
+### Enhancements
+
+* Graph equality now respects node attributes.  Graphs with different node attributes will not be considered equal.
+
 ## 0.1.4
 
 ### Bug Fixes
