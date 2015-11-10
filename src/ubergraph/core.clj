@@ -1,12 +1,12 @@
 (ns ubergraph.core
   (:require [potemkin :refer [import-vars def-map-type deftype+]]
             [potemkin.collections :refer [AbstractMap]]
-            [loom.graph :as lg] 
+            [loom.graph :as lg]
             [loom.attr :as la]
             [ubergraph.protocols :as up]
             [dorothy.core :as d]
-            [clojure.pprint]
-            ))
+            [clojure.string :as str]
+            [clojure.pprint]))
 
 (import-vars 
   [loom.graph
@@ -754,6 +754,13 @@ Undirected edges are counted only once."
           g))
       $ (edges g)))) 
 
+(defn- dotid [n]
+  (if (or (string? n)
+          (keyword? n)
+          (number? n))
+    n
+    (str/replace (print-str n) ":" "")))
+
 (defn viz-graph
   "Uses graphviz to generate a visualization of your graph. Graphviz 
 must be installed on your computer and in your path. Passes along
@@ -773,17 +780,13 @@ Takes an optional map which can contain:
           ns (nodes g),
           es (edges g)
           nodes (for [n ns]
-                  [(if (or (string? n)
-                           (keyword? n)
-                           (number? n))
-                     n
-                     (print-str n))
+                  [(dotid n)
                    (sanitize-attrs g n)]),
           directed-edges (for [e es :when (directed-edge? e)]
-                           [(src e) (dest e) (sanitize-attrs g e)])
+                           [(dotid (src e)) (dotid (dest e)) (sanitize-attrs g e)])
           undirected-edges (for [e es :when (and (undirected-edge? e)
                                                  (not (mirror-edge? e)))]
-                             [(src e) (dest e)
+                             [(dotid (src e)) (dotid (dest e))
                               (merge {:dir :none} (sanitize-attrs g e))])]
       (-> (concat [{:layout layout}] 
                   nodes directed-edges undirected-edges)
