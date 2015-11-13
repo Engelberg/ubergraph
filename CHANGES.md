@@ -1,5 +1,11 @@
 # Ubergraph Change Log
 
+## 0.1.6
+
+### Bug Fixes
+
+* Patch from emlyn so viz works on nodes that are maps.
+
 ## 0.1.5
 
 ### Enhancements
