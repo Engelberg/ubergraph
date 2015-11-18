@@ -1,5 +1,11 @@
 # Ubergraph Change Log
 
+## 0.1.7
+
+### Bug Fixes
+
+* Patch from emlyn so ubergraph runs on Clojure 1.8
+
 ## 0.1.6
 
 ### Bug Fixes
