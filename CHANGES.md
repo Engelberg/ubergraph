@@ -1,5 +1,14 @@
 # Ubergraph Change Log
 
+## 0.1.8
+
+### Bug Fixes
+
+* Removed reflective call in `nodes`
+* Changed graph equality to treat attributes of nil to be the same as attributes of {}
+* Changed doc string for `add-edges`
+* Fixed merging of attributes when parallel edges are added in a non-multi graph.
+
 ## 0.1.7
 
 ### Bug Fixes

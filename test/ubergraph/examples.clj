@@ -51,3 +51,10 @@
                           [:a :c {:weight 3 :cost 300 :distance 20}])
               (uber/graph [:a :b {:weight 2 :cost 200 :distance 10}]
                           [:a :c {:weight 3 :cost 400 :distance 20}])))))
+
+(deftest test-merge-attrs
+  (is (= {:color :red, :n 2} 
+         (uber/attrs (uber/add-edges (uber/graph "a" "b") ["a" "b" {:color :red}] ["b" "a" {:n 2}]) ["a" "b"])))
+  (is (= true
+         (= (uber/graph 1)
+            (uber/add-attrs (uber/graph 1) 1 {})))))

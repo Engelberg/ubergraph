@@ -704,7 +704,6 @@ Undirected edges are counted only once."
           (= @(:cached-hash g1) -1)
           (= @(:cached-hash g2) -1)
           (= @(:cached-hash g1) @(:cached-hash g2)))            
-        (= (count (:attrs g1)) (count (:attrs g2)))
         (= (nodes g1) (nodes g2))
         (= (count-edges g1) (count-edges g2))
         (equal-nodes? g1 g2)
