@@ -68,8 +68,11 @@
    ubergraph?
    ]
    )
-   
-  
+
+; We extend add-edges to support attribute maps in the edge specification
+; so let's update the doc string
+(alter-meta! #'add-edges assoc 
+             :doc "Adds edges to graph g of the form [n1 n2], [n1 n2 weight], or [n1 n2 attr-map].")  
 
 ; This namespace provides a concrete implementation of ubergraph.protocols, which is
 ; a conservative extension to Loom's protocols.
@@ -118,7 +121,7 @@
 (def-map-type Ubergraph [node-map allow-parallel? undirected? attrs cached-hash]
   AbstractMap
   lg/Graph
-  (nodes [g] (let [^clojure.lang.IPersistentMap m (:node-map g)] 
+  (nodes [g] (let [^java.util.Map m (:node-map g)] 
                (.keySet m)))
   (edges [g] (for [[node node-info] (:node-map g)
                    [dest edges] (:out-edges node-info),
@@ -393,7 +396,7 @@
   (let [attributes (number->map attributes)]
     (cond
       (and (not (:allow-parallel? g)) (get-edge g src dest))
-      (update-in g [:attrs (get-edge g src dest)]
+      (update-in g [:attrs (:id (get-edge g src dest))]
                  merge attributes)
       
       (:undirected? g) (add-undirected-edge g src dest attributes)
@@ -404,7 +407,7 @@
   (let [attributes (number->map attributes)]
     (cond
       (and (not (:allow-parallel? g)) (get-edge g src dest))
-      (update-in g [:attrs (get-edge g src dest)]
+      (update-in g [:attrs (:id (get-edge g src dest))]
                  merge attributes)
       :else (add-directed-edge g src dest attributes))))
 
@@ -687,7 +690,8 @@ Undirected edges are counted only once."
 
 (defn- node-attrs [g]
   (if (pos? (count (:attrs g))) ; only bother with this step if graph has attributes
-    (select-keys (:attrs g) (nodes g))
+    (into {} (for [n (nodes g) :let [a (attrs g n)] :when (seq a)] 
+               [n (attrs g n)]))
     {}))
 
 (defn- equal-nodes? [g1 g2]
