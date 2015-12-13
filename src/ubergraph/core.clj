@@ -689,13 +689,25 @@ Undirected edges are counted only once."
                    (assoc edge :id (attrs g edge))))))
 
 (defn- node-attrs [g]
-  (if (pos? (count (:attrs g))) ; only bother with this step if graph has attributes
-    (into {} (for [n (nodes g) :let [a (attrs g n)] :when (seq a)] 
-               [n (attrs g n)]))
-    {}))
+  (let [g-attrs (:attrs g)]
+    (if (pos? (count g-attrs)) ; only bother with this step if graph has attributes
+      (into {} (for [n (nodes g) :let [a (get g-attrs n {})] :when (seq a)] 
+                 [n a]))
+      {})))
 
-(defn- equal-nodes? [g1 g2]
-  (= (node-attrs g1) (node-attrs g2)))
+(defn- equal-nodes?
+  "Assumes that we've already established (= (nodes g1) (nodes g2)).
+We're just checking the attributes here"
+  [g1 g2]
+  (let [g1-attrs (:attrs g1), g2-attrs (:attrs g2)]
+    (if
+      (and (zero? (count g1-attrs))
+           (zero? (count g2-attrs)))
+      true    
+      (every? identity 
+              (for [n (nodes g1)]
+                (= (get g1-attrs n {}) 
+                   (get g2-attrs n {})))))))
 
 (defn- equal-graphs? [^Ubergraph g1 ^Ubergraph g2]
   (or (.equals g1 g2)

@@ -1,5 +1,11 @@
 # Ubergraph Change Log
 
+## 0.1.9
+
+### Improvements
+
+* Sped up equality testing
+
 ## 0.1.8
 
 ### Bug Fixes
