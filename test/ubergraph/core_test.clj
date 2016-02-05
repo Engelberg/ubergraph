@@ -208,3 +208,32 @@
         88 (weight g4 6 5)
         1 (weight g4 7 8)))))
 
+(deftest graph-with-self-cycles
+  (let [g1 (graph [1 1])
+        g2 (digraph [1 1])
+        g3 (multigraph [1 1 {:color :red}] [1 1 {:color :blue}])
+        g4 (multidigraph [1 1 {:color :red}] [1 1 {:color :blue}])]
+    (testing "Undirected graph"
+      (are [expected got] (= expected got)
+        #{1} (set (successors g1 1))
+        #{1} (set (predecessors g1 1))
+        1 (out-degree g1 1)
+        1 (in-degree g1 1)))
+    (testing "Directed graph"
+      (are [expected got] (= expected got)
+        #{1} (set (successors g2 1))
+        #{1} (set (predecessors g2 1))
+        1 (out-degree g2 1)
+        1 (in-degree g2 1)))
+    (testing "Multigraph"
+      (are [expected got] (= expected got)
+        #{1} (set (successors g3 1))
+        #{1} (set (predecessors g3 1))
+        2 (out-degree g3 1)
+        2 (in-degree g3 1)))
+    (testing "Multidigraph"
+      (are [expected got] (= expected got)
+        #{1} (set (successors g4 1))
+        #{1} (set (predecessors g4 1))
+        2 (out-degree g4 1)
+        2 (in-degree g4 1)))))
