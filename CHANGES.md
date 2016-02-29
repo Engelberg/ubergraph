@@ -11,6 +11,10 @@
 * Clarified some doc strings, and added note to README that some algorithms require Java 8.
 * Added `undirected-graph?`, `allow-parallel-edges?`, `ubergraph`
 
+### Breaking Changes
+
+* Improved equality semantics for undirected graphs so the order in which the src and dest are listed don't affect equality.  (graph [1 2]) and (graph [2 1]) now compare as equal.
+
 ## 0.1.9
 
 ### Improvements
