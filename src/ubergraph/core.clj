@@ -353,14 +353,13 @@
                     (:attrs g))
         node-map (:node-map g)
         node-map-src (get node-map src)
+        node-map-dest (get node-map dest)
         new-node-map-src (-> node-map-src             
                            (update-in [:out-edges dest] fconj edge)
                            (update-in [:out-degree] finc))
-        node-map-dest (if (= src dest) new-node-map-src (get node-map dest))
-        new-node-map-dest (-> node-map-dest
+        new-node-map-dest (-> (if (= src dest) new-node-map-src node-map-dest)
                             (update-in [:in-edges src] fconj edge)
                             (update-in [:in-degree] finc))
-        new-node-map-src (if (= src dest) new-node-map-dest new-node-map-src)
         new-node-map (assoc node-map src new-node-map-src dest new-node-map-dest)]
     (Ubergraph. new-node-map (:allow-parallel? g) (:undirected? g) new-attrs (atom -1))))
 
@@ -381,12 +380,11 @@
                            (update-in [:in-edges dest] fconj backward-edge)
                            (update-in [:in-degree] finc)
                            (update-in [:out-degree] finc))
-        new-node-map-dest (-> node-map-dest
+        new-node-map-dest (-> (if (= src dest) new-node-map-src node-map-dest)
                             (update-in [:out-edges src] fconj backward-edge)
                             (update-in [:in-edges src] fconj forward-edge)
                             (update-in [:in-degree] finc)
                             (update-in [:out-degree] finc))
-        new-node-map-dest (if (= src dest) new-node-map-src new-node-map-dest)
         new-node-map (assoc node-map src new-node-map-src dest new-node-map-dest)]
     (Ubergraph. new-node-map (:allow-parallel? g) (:undirected? g) new-attrs (atom -1))))
 
