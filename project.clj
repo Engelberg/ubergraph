@@ -8,7 +8,7 @@
                  [aysylu/loom "0.5.4"]
                  [dorothy "0.0.6"]
                  [potemkin "0.4.3"]]
-  :codox {:include [ubergraph.core ubergraph.alg]
-          :src-dir-uri "http://github.com/Engelberg/ubergraph/tree/master/"
-          :src-linenum-anchor-prefix "L"}
+  :codox {:output-path "doc"
+          :namespaces [ubergraph.core ubergraph.alg]
+          :source-uri "http://github.com/Engelberg/ubergraph/tree/master/{filepath}#L{line}"}
   )
