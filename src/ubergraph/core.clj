@@ -689,20 +689,30 @@ Undirected edges are counted only once."
 (alter-meta! #'map->UndirectedEdge assoc :no-doc true)
 
 ;; Equality is more complicated
+;; We can't use Clojure's default structural equality because
+;; of the randomness of UUIDs.  The same graph, created at
+;; different points in time will have different UUIDs for the same edges
+;; so they won't compare as equal.
+;; We compare for equality by stripping out UUIDs and
+;; matching up edges between the same src and dest, with
+;; the same directedness and same attributes.
+
+(defn- edge-characteristics [g]
+  (fn [edge]
+    [(directed-edge? edge)
+     (attrs g edge)
+     (src edge)
+     (dest edge)]))
 
 (defn- equal-edges? [g1 g2 n1 n2]
   (let [edges-between-g1 (find-edges g1 n1 n2),
-        replace-ids-g1 (frequencies (for [edge edges-between-g1]
-                                      (assoc edge :id (attrs g1 edge))))
+        edge-characteristics-g1 (frequencies (map (edge-characteristics g1) edges-between-g1))
         edges-between-g2 (find-edges g2 n1 n2),
-        replace-ids-g2 (frequencies (for [edge edges-between-g2]
-                                      (assoc edge :id (attrs g2 edge))))]
-    (= replace-ids-g1 replace-ids-g2)))
+        edge-characteristics-g2 (frequencies (map (edge-characteristics g2) edges-between-g2))]
+    (= edge-characteristics-g1 e-g2)))
 
 (defn- edges-freqs [g]
-  (let [es (edges g)]
-    (frequencies (for [edge es]
-                   (assoc edge :id (attrs g edge))))))
+  (frequencies (map (edge-characteristics g) (edges g))))
 
 (defn- node-attrs [g]
   (let [g-attrs (:attrs g)]
@@ -731,7 +741,8 @@ We're just checking the attributes here"
         (or
           (= @(:cached-hash g1) -1)
           (= @(:cached-hash g2) -1)
-          (= @(:cached-hash g1) @(:cached-hash g2)))            
+          (= @(:cached-hash g1) @(:cached-hash g2)))
+        (= (count-nodes g1) (count-nodes g2))
         (= (nodes g1) (nodes g2))
         (= (count-edges g1) (count-edges g2))
         (equal-nodes? g1 g2)

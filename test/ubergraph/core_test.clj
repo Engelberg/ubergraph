@@ -254,3 +254,17 @@
          g4 ug4
          [true true false false] (map allow-parallel-edges? [ug1 ug2 ug3 ug4])
          [true false true false] (map undirected-graph? [ug1 ug2 ug3 ug4]))))
+
+(deftest ubergraph-equality
+  (are [expected got] (= expected got)
+       true (= (graph [1 2]) (graph [1 2]))
+       true (= (graph [1 2]) (graph [2 1]))
+       false (= (graph [1 2]) (graph [1 3]))
+       false (= (graph [1 2 {:a 1}]) (graph [1 2 {:a 2}]))
+       true (= (graph [1 2 {:a 1}]) (graph [1 2 {:a 1}]))
+       false (= (digraph [1 2 {:a 2}] [2 1 {:a 2}]) (graph [1 2 {:a 2}]))
+       true (= (digraph [1 2 {:a 2}] [2 1 {:a 2}]) (digraph [1 2 {:a 2}] [2 1 {:a 2}]))
+       true (= (multigraph [1 2 {:a 1}] [1 2 5])
+               (multigraph [2 1 {:a 1}] [2 1 5]))
+       false (= (multidigraph [1 2 {:a 1}] [1 2 5])
+                (multidigraph [2 1 {:a 1}] [2 1 5]))))
