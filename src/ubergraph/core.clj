@@ -235,6 +235,15 @@
                            (equal-graphs? this other)))
   )
 
+(defn undirected-graph? "If true, new edges in g are undirected by default.  If false,
+new edges in g are directed by default."
+  [g] (:undirected? g))
+
+(defn allow-parallel-edges? "If true, two edges between the same pair of nodes in the same direction
+are permitted.  If false, adding a new edge between the same pair of nodes as an existing edge will
+merge the edges into a single edge, and adding an undirected edge on top of an existing directed edge
+will `upgrade' the directed edge to undirected and merge attributes."
+  [g] (:allow-parallel? g))
 
 ; A node-id is anything the user wants it to be -- a number, a keyword, a data structure
 ; An edge is something with a src, a dest, and an id that can be used to look up attributes
@@ -603,19 +612,26 @@ precise add-nodes, add-nodes-with-attrs, and add-edges functions."
   (apply build-graph (->Ubergraph {} true true {} (atom -1)) inits))
 
 (defn multidigraph 
-    "Multidigraph constructor. See build-graph for description of valid inits"
-    [& inits]
+  "Multidigraph constructor. See build-graph for description of valid inits"
+  [& inits]
   (apply build-graph (->Ubergraph {} true false {} (atom -1)) inits))
 
 (defn graph 
-    "Graph constructor. See build-graph for description of valid inits"
-    [& inits]
+  "Graph constructor. See build-graph for description of valid inits"
+  [& inits]
   (apply build-graph (->Ubergraph {} false true {} (atom -1)) inits))
 
 (defn digraph
-    "Digraph constructor. See build-graph for description of valid inits"
-    [& inits]
+  "Digraph constructor. See build-graph for description of valid inits"
+  [& inits]
   (apply build-graph (->Ubergraph {} false false {} (atom -1)) inits))
+
+(defn ubergraph
+  "General ubergraph construtor. Takes booleans for allow-parallel? and undirected? to 
+call either graph, digraph, multigraph, or multidigraph.
+See build-graph for description of valid inits"
+  [allow-parallel? undirected? & inits]
+  (apply build-graph (->Ubergraph {} allow-parallel? undirected? {} (atom -1)) inits))
 
 ;; Friendlier printing
 

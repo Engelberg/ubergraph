@@ -18,7 +18,7 @@ Ubergraph is a great choice for people who:
 
 Add the following line to your leiningen dependencies:
 
-	[ubergraph "0.1.9"]
+	[ubergraph "0.2.0"]
 
 Require ubergraph in your namespace header:
 
@@ -28,6 +28,10 @@ Require ubergraph in your namespace header:
 Ubergraph lists loom as a dependency, so when you add ubergraph to your project, leiningen will also download loom.  This means all of loom's namespaces are also available to you in your program.  Loom is currently organized in a way that its protocols are split across several different namespaces.  As a convenience, ubergraph.core provides access to all of loom's protocol functions through its own namespace.
 
 For example, rather than calling `loom.graph/out-edges` and `loom.attr/add-attr`, you can just call `uber/out-edges` and `uber/add-attr`.
+
+### Requirements
+
+Ubergraph is tested on Clojure 1.8.  Some of the graph algorithms require Java 8 or greater.
 
 ### API
 
@@ -246,6 +250,17 @@ When you don't supply :src and :dest, the query won't be particularly efficient,
 ### Multidigraphs
 
 Multidigraphs, as you'd expect, are built with the `multidigraph` constructor and are the directed-as-default version of multigraphs.
+
+### Ubergraphs
+
+The general-purpose `ubergraph` constructor takes two booleans (allow-parallel-edges? and undirected-graph?) and dispatches to the appropriate constructor.  So:
+
++ `(ubergraph true true ...)` calls `multigraph`
++ `(ubergraph true false ...)` calls `multidigraph`
++ `(ubergraph false true ...)` calls `graph`
++ `(ubergraph false false ...)` calls `digraph`
+
+You can test to find out what kind of ubergraph you have with the predicates `allow-parallel-edges?` and `undirected-graph?`.  (Keep in mind that `undirected-graph?` just tests whether new edges are added as undirected by default.  You can override this behavior for specific edges.)
 
 ### Equality
 

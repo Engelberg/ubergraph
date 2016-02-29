@@ -1,5 +1,16 @@
 # Ubergraph Change Log
 
+## 0.2.0
+
+### Bug Fixes
+
+* Fixed problem with `loop' edges that go from a node to itself.
+
+### Improvements
+
+* Clarified some doc strings, and added note to README that some algorithms require Java 8.
+* Added `undirected-graph?`, `allow-parallel-edges?`, `ubergraph`
+
 ## 0.1.9
 
 ### Improvements

@@ -237,3 +237,20 @@
         #{1} (set (predecessors g4 1))
         2 (out-degree g4 1)
         2 (in-degree g4 1)))))
+
+(deftest ubergraph-constructor
+  (let [ug1 (ubergraph true true [1 2]),
+        g1 (multigraph [1 2])
+        ug2 (ubergraph true false [1 2]),
+        g2 (multidigraph [1 2])
+        ug3 (ubergraph false true [1 2])
+        g3 (graph [1 2])
+        ug4 (ubergraph false false [1 2])
+        g4 (digraph [1 2])]
+    (are [expected got] (= expected got)
+         g1 ug1
+         g2 ug2
+         g3 ug3
+         g4 ug4
+         [true true false false] (map allow-parallel-edges? [ug1 ug2 ug3 ug4])
+         [true false true false] (map undirected-graph? [ug1 ug2 ug3 ug4]))))
