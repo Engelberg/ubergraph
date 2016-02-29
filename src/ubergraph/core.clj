@@ -709,7 +709,7 @@ Undirected edges are counted only once."
         edge-characteristics-g1 (frequencies (map (edge-characteristics g1) edges-between-g1))
         edges-between-g2 (find-edges g2 n1 n2),
         edge-characteristics-g2 (frequencies (map (edge-characteristics g2) edges-between-g2))]
-    (= edge-characteristics-g1 e-g2)))
+    (= edge-characteristics-g1 edge-characteristics-g2)))
 
 (defn- edges-freqs [g]
   (frequencies (map (edge-characteristics g) (edges g))))
