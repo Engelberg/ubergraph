@@ -1,5 +1,11 @@
 # Ubergraph Change Log
 
+## 0.2.1
+
+### Bug Fixes
+
+* Fixed bug in find-edges with queries containing more than :src and :dest.  Thanks to lomin for finding and providing the pull request for this bug.
+
 ## 0.2.0
 
 ### Bug Fixes
