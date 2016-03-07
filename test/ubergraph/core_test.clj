@@ -268,3 +268,43 @@
                (multigraph [2 1 {:a 1}] [2 1 5]))
        false (= (multidigraph [1 2 {:a 1}] [1 2 5])
                 (multidigraph [2 1 {:a 1}] [2 1 5]))))
+
+(defn- sorted-simple-edges [xs]
+  (sort-by (juxt :src :dest) (map (fn [x] {:src (:src x) :dest (:dest x)}) xs)))
+
+(defn- do-find-edges [g query]
+  (sorted-simple-edges (find-edges g query)))
+
+(defn- make-edges [& args]
+  (map (fn [[src dest]] {:src src :dest dest}) (partition 2 args)))
+
+(deftest find-edges-test
+  (let [g0 (multidigraph)
+        g1 (add-edges g0 [:a :b {:type "local"}])
+        g2 (add-edges g1 [:a :b {:type "local"}])
+        g3 (add-edges g2 [:a :b {:type "global"}])
+        g4 (add-edges g3 [:x :y {:type "global"}])
+        g5 (add-edges g4 [:a :y {:type "global"}])
+        g6 (add-edges g5 [:x :y {:type "global" :position 5}])]
+
+    (testing "finds edges by attribute"
+      (is (= (make-edges :a :b)
+             (do-find-edges g1 {:src :a :dest :b :type "local"})))
+      (is (= (make-edges :a :b :a :b)
+             (do-find-edges g2 {:src :a :dest :b :type "local"})))
+      (is (= (make-edges :a :b :a :b)
+             (do-find-edges g3 {:src :a :dest :b :type "local"})))
+      (is (= (make-edges :a :b)
+             (do-find-edges g3 {:src :a :dest :b :type "global"})))
+      (is (= (make-edges :a :b :a :y)
+             (do-find-edges g5 {:src :a :type "global"})))
+      (is (= (make-edges :a :b :a :b)
+             (do-find-edges g5 {:dest :b :type "local"})))
+      (is (= (make-edges :a :b)
+             (do-find-edges g5 {:dest :b :type "global"})))
+      (is (= (make-edges :a :b :a :y :x :y)
+             (do-find-edges g5 {:type "global"})))
+      (is (= (make-edges :x :y)
+             (do-find-edges g6 {:position 5})))
+      (is (= (make-edges :x :y)
+             (do-find-edges g6 {:type "global" :position 5}))))))

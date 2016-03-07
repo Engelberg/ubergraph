@@ -346,7 +346,7 @@ will `upgrade' the directed edge to undirected and merge attributes."
           attributes (dissoc attributes :src :dest)]
       (if (pos? (count attributes))
         (for [edge edges
-              :when (submap? attributes (get-in g [:attrs edge]))]
+              :when (submap? attributes (get-in g [:attrs (:id edge)]))]
           edge)
         edges))))
 
