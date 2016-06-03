@@ -1,6 +1,6 @@
 (defproject ubergraph "0.2.2"
   :description "Feature-loaded graph implementation"
-  :url "http://example.com/FIXME"
+  :url "http://github.com/engelberg/ubergraph"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.8.0"]
