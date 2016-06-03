@@ -1,4 +1,4 @@
-(defproject ubergraph "0.2.1"
+(defproject ubergraph "0.2.2"
   :description "Feature-loaded graph implementation"
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
