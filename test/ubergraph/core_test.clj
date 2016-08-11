@@ -268,7 +268,8 @@
                (multigraph [2 1 {:a 1}] [2 1 5]))
        false (= (multidigraph [1 2 {:a 1}] [1 2 5])
                 (multidigraph [2 1 {:a 1}] [2 1 5]))
-       true (= (digraph [0 1]) (digraph [0 1] [0 1]))))
+       true (= (digraph [0 1]) (digraph [0 1] [0 1]))
+       true (= (digraph [0 1]) (add-directed-edges (digraph) [0 1] [0 1]))))
 
 (defn- sorted-simple-edges [xs]
   (sort-by (juxt :src :dest) (map (fn [x] {:src (:src x) :dest (:dest x)}) xs)))
