@@ -418,8 +418,10 @@ will `upgrade' the directed edge to undirected and merge attributes."
   (let [attributes (number->map attributes)]
     (cond
       (and (not (:allow-parallel? g)) (get-edge g src dest))
-      (update-in g [:attrs (:id (get-edge g src dest))]
-                 merge attributes)
+      (if attributes
+        (update-in g [:attrs (:id (get-edge g src dest))]
+                   merge attributes)
+        g)
       :else (add-directed-edge g src dest attributes))))
 
 (defn- force-add-undirected-edge

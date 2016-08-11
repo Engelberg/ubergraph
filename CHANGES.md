@@ -1,5 +1,11 @@
 # Ubergraph Change Log
 
+## 0.2.3
+
+### Bug Fixes
+
+* Fixed bug that caused a nil attribute map to appear when adding the same directed edge twice to a non-multidigraph (via add-directed-edges*), affecting viz-graph.
+
 ## 0.2.2
 
 ### Bug Fixes
