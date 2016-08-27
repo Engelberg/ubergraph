@@ -121,8 +121,7 @@
 (def-map-type Ubergraph [node-map allow-parallel? undirected? attrs cached-hash]
   AbstractMap
   lg/Graph
-  (nodes [g] (let [^java.util.Map m (:node-map g)] 
-               (.keySet m)))
+  (nodes [g] (keys (:node-map g)))
   (edges [g] (for [[node node-info] (:node-map g)
                    [dest edges] (:out-edges node-info),
                    edge edges]
@@ -739,6 +738,10 @@ We're just checking the attributes here"
                 (= (get g1-attrs n {}) 
                    (get g2-attrs n {})))))))
 
+(defn- node-set [^Ubergraph g]
+  (let [^java.util.Map m (:node-map g)] 
+    (.keySet m)))
+
 (defn- equal-graphs? [^Ubergraph g1 ^Ubergraph g2]
   (or (.equals g1 g2)
       (and
@@ -747,7 +750,7 @@ We're just checking the attributes here"
           (= @(:cached-hash g2) -1)
           (= @(:cached-hash g1) @(:cached-hash g2)))
         (= (count-nodes g1) (count-nodes g2))
-        (= (nodes g1) (nodes g2))
+        (= (node-set g1) (node-set g2))
         (= (count-edges g1) (count-edges g2))
         (equal-nodes? g1 g2)
         (every? identity
@@ -759,7 +762,7 @@ We're just checking the attributes here"
   (let [h (:cached-hash g)
         val @h]
     (if (= val -1)
-      (let [ns (nodes g),
+      (let [ns (node-set g),
             code (hash {:nodes ns,
                         :node-attrs (node-attrs g),
                         :edges (edges-freqs g)})]

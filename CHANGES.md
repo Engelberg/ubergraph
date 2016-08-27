@@ -1,5 +1,11 @@
 # Ubergraph Change Log
 
+## 0.3.0
+
+### Breaking change
+
+* Calling `nodes` on a graph now returns a seq, not a keySet.
+
 ## 0.2.3
 
 ### Bug Fixes
