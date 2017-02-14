@@ -820,10 +820,12 @@ Takes an optional map which can contain:
 :auto-label true (labels each node/edge with its attribute map)
 :layout :dot, :neato, :fdp, :sfdp, :twopi, or :circo
 :save {:filename _, :format _} where format is one of
-  :bmp :eps :gif :ico :jpg :jpeg :pdf :png :ps :ps2 :svgz :tif :tiff :vmlz :wbmp"
+  :bmp :eps :gif :ico :jpg :jpeg :pdf :png :ps :ps2 :svgz :tif :tiff :vmlz :wbmp
+Additionally map can contains graph attributes for graphviz like :bgcolor, :label, :splines, ..."
   ([g] (viz-graph g {}))
   ([g {layout :layout {filename :filename format :format :as save} :save
        auto-label :auto-label
+       :as opts
        :or {layout :dot}}]
     (let [g (if auto-label (label g) g)
           ns (nodes g),
@@ -837,7 +839,7 @@ Takes an optional map which can contain:
                                                  (not (mirror-edge? e)))]
                              [(dotid (src e)) (dotid (dest e))
                               (merge {:dir :none} (sanitize-attrs g e))])]
-      (-> (concat [{:layout layout}]
+      (-> (concat [(merge {:layout layout} (dissoc opts :layout :save :auto-label))]
                   nodes directed-edges undirected-edges)
         d/digraph
         d/dot
