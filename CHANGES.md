@@ -1,5 +1,11 @@
 # Ubergraph Change Log
 
+## 0.3.1
+
+### Enhancements
+
+* `viz-graph` can now take graph attributes in the opts map.  (Thanks to masztal for this PR).
+
 ## 0.3.0
 
 ### Breaking change
