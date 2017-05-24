@@ -636,6 +636,30 @@ See build-graph for description of valid inits"
   [allow-parallel? undirected? & inits]
   (apply build-graph (->Ubergraph {} allow-parallel? undirected? {} (atom -1)) inits))
 
+;; Serialize/deserialize to an edn Clojure data structure
+
+(defn ubergraph->edn [g]
+  {:allow-parallel? (:allow-parallel? g),
+   :undirected? (:undirected? g),
+   :nodes (vec (for [node (nodes g)] [node (attrs g node)]))
+   :directed-edges (vec (for [edge (edges g) :when (directed-edge? edge)]
+                             [(src edge) (dest edge) (attrs g edge)]))
+   :undirected-edges (vec (for [edge (edges g) :when (and (undirected-edge? edge) (not (mirror-edge? edge)))]
+                               [(src edge) (dest edge) (attrs g edge)]))})
+
+(defn edn->ubergraph [{:keys [allow-parallel? undirected? nodes directed-edges undirected-edges]}]
+  (-> (ubergraph allow-parallel? undirected?)
+      (add-nodes-with-attrs* nodes)
+      (add-directed-edges* directed-edges)
+      (add-undirected-edges* undirected-edges)))
+
+;; Override print-dup so we can serialize to a string with (binding [*print-dup* true] (pr-str my-graph))
+;; Deserialize from string with read-string.
+
+(defmethod print-dup ubergraph.core.Ubergraph [o w]
+  (print-ctor o (fn [o w] (print-dup (:node-map o) w) (.write w " ") (print-dup (:allow-parallel? o) w) (.write w " ") (print-dup (:undirected? o) w) (.write w " ") (print-dup (:attrs o) w) (.write w " ")
+                  (print-ctor (:cached-hash o) (fn [o w] (print-dup (:cached-hash o) w)) w)) w))
+
 ;; Friendlier printing
 
 (defn- graph-type [g]
