@@ -1,5 +1,13 @@
 # Ubergraph Change Log
 
+## 0.4.0
+
+### Enhancements
+
+* Implemented `ubergraph?` predicate.
+* Added `ubergraph->edn` and `edn->ubergraph` as a way to serialize and deserialize ubergraphs.
+* Added print-dup multimethod for serialization via print-dup.
+
 ## 0.3.1
 
 ### Enhancements

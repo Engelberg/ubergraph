@@ -208,6 +208,9 @@
   (add-undirected-edges* [g edge-definitions] (reduce (fn [g edge] (force-add-undirected-edge g edge))
                                                       g edge-definitions))
 
+  up/IUbergraph
+  (ubergraph? [g] true)
+
   (get [this key default-value]
        (case key
          :node-map node-map
@@ -290,7 +293,15 @@ will `upgrade' the directed edge to undirected and merge attributes."
   (directed-edge? [e] false)
   (mirror-edge? [e] false)
   up/IUbergraph
-  (ubergraph? [g] false))
+  (ubergraph? [g] (and (satisfies? lg/Graph g)
+                       (satisfies? lg/Digraph g)
+                       (satisfies? lg/WeightedGraph g)
+                       (satisfies? lg/EditableGraph g)
+                       (satisfies? la/AttrGraph g)
+                       (satisfies? up/Attrs g)
+                       (satisfies? up/UndirectedGraph g)
+                       (satisfies? up/QueryableGraph g)
+                       (satisfies? up/MixedDirectionGraph g))))
 
 
 (defn edge? "Tests whether o is an edge object"
@@ -670,7 +681,7 @@ See build-graph for description of valid inits"
     :else "Digraph"))
 
 (defn count-nodes "Counts how many nodes are in g" [g]
-  (if (ubergraph? g)
+  (if (instance? Ubergraph g)
     (count (:node-map g))
     (count (nodes g))))
 

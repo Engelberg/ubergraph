@@ -18,7 +18,7 @@ Ubergraph is a great choice for people who:
 
 Add the following line to your leiningen dependencies:
 
-	[ubergraph "0.3.1"]
+	[ubergraph "0.4.0"]
 
 Require ubergraph in your namespace header:
 
@@ -591,6 +591,38 @@ Last but not least, `shortest-path` can handle edges with negative costs.  If it
 Note: If you call `shortest-path` on a graph with a negative-weight *cycle*, the function will return false.
 
 All of Ubergraph's algorithms, including the new `shortest-path`, should be backwards-comaptible with Loom's graphs.
+
+### Serialization
+
+There are two options for serializing and deserializing ubergraphs.
+
+#### Option 1: Serializing via EDN
+
+The function `ubergraph->edn` converts an ubergraph to the EDN subset of Clojure, so you can use your favorite EDN serialization mechanism such as nippy or transit, or use something like cheshire to convert it to JSON.
+
+```clojure
+=> (uber/ubergraph->edn graph3)
+{:allow-parallel? false,
+ :undirected? true,
+ :nodes [[:a {}] [:b {}] [:c {}]],
+ :directed-edges [],
+ :undirected-edges [[:a :b {:weight 2, :price 200, :distance 10}] [:a :c {:weight 3, :price 300, :distance 20}]]}
+```
+
+You can recover the ubergraph from the EDN with the function `edn->ubergraph`.
+
+#### Option 2: Seralizing via print-dup
+
+You can create a Clojure-readable string out of an ubergraph as follows:
+
+```clojure
+=> (binding [*print-dup* true] (pr-str graph3))
+"#=(ubergraph.core.Ubergraph. #=(clojure.lang.PersistentArrayMap/create {:a #ubergraph.core.NodeInfo[#=(clojure.lang.PersistentArrayMap/create {:b #{#ubergraph.core.UndirectedEdge[#uuid \"9189ba27-1298-411a-910e-3a32245f1489\", :a, :b, false]}, :c #{#ubergraph.core.UndirectedEdge[#uuid \"f18e3829-e53c-4f30-bed8-db5ec9327458\", :a, :c, false]}}), #=(clojure.lang.PersistentArrayMap/create {:b #{#ubergraph.core.UndirectedEdge[#uuid \"9189ba27-1298-411a-910e-3a32245f1489\", :b, :a, true]}, :c #{#ubergraph.core.UndirectedEdge[#uuid \"f18e3829-e53c-4f30-bed8-db5ec9327458\", :c, :a, true]}}), 2, 2], :b #ubergraph.core.NodeInfo[#=(clojure.lang.PersistentArrayMap/create {:a #{#ubergraph.core.UndirectedEdge[#uuid \"9189ba27-1298-411a-910e-3a32245f1489\", :b, :a, true]}}), #=(clojure.lang.PersistentArrayMap/create {:a #{#ubergraph.core.UndirectedEdge[#uuid \"9189ba27-1298-411a-910e-3a32245f1489\", :a, :b, false]}}), 1, 1], :c #ubergraph.core.NodeInfo[#=(clojure.lang.PersistentArrayMap/create {:a #{#ubergraph.core.UndirectedEdge[#uuid \"f18e3829-e53c-4f30-bed8-db5ec9327458\", :c, :a, true]}}), #=(clojure.lang.PersistentArrayMap/create {:a #{#ubergraph.core.UndirectedEdge[#uuid \"f18e3829-e53c-4f30-bed8-db5ec9327458\", :a, :c, false]}}), 1, 1]}) false true #=(clojure.lang.PersistentArrayMap/create {#uuid \"9189ba27-1298-411a-910e-3a32245f1489\" #=(clojure.lang.PersistentArrayMap/create {:weight 2, :price 200, :distance 10}), #uuid \"f18e3829-e53c-4f30-bed8-db5ec9327458\" #=(clojure.lang.PersistentArrayMap/create {:weight 3, :price 300, :distance 20})}) #=(clojure.lang.Atom. nil))"
+```
+
+You can recover the ubergraph from such a string with the Clojure function `read-string`.
+
+One advantage of Option 2 is that it captures the exact UUIDs in the existing graph, as well as any cached hash values.  Option 1 merely stores sufficient information about the graph that an equivalent ubergraph can be rebuilt from the information (so, for example, the UUIDs will be different but the nodes/edges/attributes will all contain the same information).  Option 1 has the advantage of being somewhat more compact, and amenable as an input to so many serialiazation libraries.
 
 ## Relationship to Loom
 
