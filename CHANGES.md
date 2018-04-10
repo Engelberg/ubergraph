@@ -1,5 +1,11 @@
 # Ubergraph Change Log
 
+## 0.5.0
+
+### Upgrades
+
+* Upgraded to work with Loom 1.0.1.
+
 ## 0.4.0
 
 ### Enhancements

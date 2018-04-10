@@ -9,110 +9,113 @@
             [clojure.pprint]))
 
 (import-vars
-  [loom.graph
-   ; Graph protocol
-   nodes
-   edges
-   has-node?
-   has-edge?
-   successors
-   out-degree
-   out-edges
-   ; Digraph protocol
-   predecessors
-   in-degree
-   in-edges
-   transpose
-   ; WeightedGraph protocol
-   weight
-   ; EditableGraph protocol
-   add-nodes*
-   add-edges*
-   remove-nodes*
-   remove-edges*
-   remove-all
-   ; Edge protocol
-   src
-   dest
-   ; Helper functions
-   add-nodes
-   add-edges
-   remove-nodes
-   remove-edges]
+ [loom.graph
+  ;; Graph protocol
+  nodes
+  edges
+  has-node?
+  has-edge?
+  successors*
+  out-degree
+  out-edges
+  ;; Digraph protocol
+  predecessors*
+  in-degree
+  in-edges
+  transpose
+  ;; WeightedGraph protocol
+  weight*
+  ;; EditableGraph protocol
+  add-nodes*
+  add-edges*
+  remove-nodes*
+  remove-edges*
+  remove-all
+  ;; Edge protocol
+  src
+  dest
+  ;; Helper functions
+  successors
+  predecessors
+  weight
+  add-nodes
+  add-edges
+  remove-nodes
+  remove-edges]
 
-  [loom.attr
-   ; AttrGraph protocol
-   add-attr
-   remove-attr
-   attr
-   attrs]
+ [loom.attr
+  ;; AttrGraph protocol
+  add-attr
+  remove-attr
+  attr
+  attrs]
 
-  [ubergraph.protocols
-   ; UndirectedGraph protocol
-   other-direction
-   ; QueryableGraph protocol
-   find-edges
-   find-edge
-   ; Attrs protocol
-   add-attrs
-   remove-attrs
-   set-attrs
-   ; MixedDirectionEdgeTests protocol
-   undirected-edge?
-   directed-edge?
-   mirror-edge?
-   ; MixedDirectionGraph protocol
-   add-directed-edges*
-   add-undirected-edges*
-   ; Ubergraph recognition protocol
-   ubergraph?
-   ]
-   )
+ [ubergraph.protocols
+  ;; UndirectedGraph protocol
+  other-direction
+  ;; QueryableGraph protocol
+  find-edges
+  find-edge
+  ;; Attrs protocol
+  add-attrs
+  remove-attrs
+  set-attrs
+  ;; MixedDirectionEdgeTests protocol
+  undirected-edge?
+  directed-edge?
+  mirror-edge?
+  ;; MixedDirectionGraph protocol
+  add-directed-edges*
+  add-undirected-edges*
+  ;; Ubergraph recognition protocol
+  ubergraph?])
+   
+   
 
-; We extend add-edges to support attribute maps in the edge specification
-; so let's update the doc string
+;; We extend add-edges to support attribute maps in the edge specification
+;; so let's update the doc string
 (alter-meta! #'add-edges assoc
              :doc "Adds edges to graph g of the form [n1 n2], [n1 n2 weight], or [n1 n2 attr-map].")
 
-; This namespace provides a concrete implementation of ubergraph.protocols, which is
-; a conservative extension to Loom's protocols.
+;; This namespace provides a concrete implementation of ubergraph.protocols, which is
+;; a conservative extension to Loom's protocols.
 
-; It supports undirected, directed, weighted, attributes, editing, mixed directedness,
-; and multiple edges between a given pair of vertices.
+;; It supports undirected, directed, weighted, attributes, editing, mixed directedness,
+;; and multiple edges between a given pair of vertices.
 
-; If Loom adopts the protocol extensions proposed in ubergraph.protocols, then
-; this data structure will be compatible with all loom algorithms.
+;; If Loom adopts the protocol extensions proposed in ubergraph.protocols, then
+;; this data structure will be compatible with all loom algorithms.
 
-; At the bottom of this file, I demonstrate how one can use Ubergraph to implement
-; all the graph types provided by Loom (except Flygraph).  There are a couple
-; subtle implementation details that are different between the Ubergraph implementation
-; and the Loom default implementations of the protocols.
+;; At the bottom of this file, I demonstrate how one can use Ubergraph to implement
+;; all the graph types provided by Loom (except Flygraph).  There are a couple
+;; subtle implementation details that are different between the Ubergraph implementation
+;; and the Loom default implementations of the protocols.
 
-; 1. Edge constructors (such as add-edges) support either [src dest], or [src dest weight]
-;    or [src dest attribute-map].
+;; 1. Edge constructors (such as add-edges) support either [src dest], or [src dest weight]
+;;    or [src dest attribute-map].
+;;
+;; 2. By default, edges added with the [src dest weight] constructor simply store the weight
+;;    as a :weight attribute.  This is simply an implementation detail which can be completely
+;;    ignored if you don't have any attributes and simply want to use the weight protocol
+;;    to retrieve the weight of an edge.  But by making it an attribute, it has the
+;;    added benefit that you can alter the weight of an edge using the attribute protocol.
 ;
-; 2. By default, edges added with the [src dest weight] constructor simply store the weight
-;    as a :weight attribute.  This is simply an implementation detail which can be completely
-;    ignored if you don't have any attributes and simply want to use the weight protocol
-;    to retrieve the weight of an edge.  But by making it an attribute, it has the
-;    added benefit that you can alter the weight of an edge using the attribute protocol.
-;
-; 3. The edges that are returned by edges are not simple vectors, they are a custom Edge
-;    data structure.  All the functions that consume edges can take this custom Edge
-;    data structure, or simpler forms like [src dest] if that is enough to uniquely
-;    identify the edge.  It is recommended that edge-processing algorithms access the
-;    source and destination nodes using the new Edge protocol (src and dest), rather
-;    than assuming that an edge is a vector.
-;
-; 4. The build-graph semantics are somewhat different from Loom's. Since Ubergraphs
-;    are capable of holding both directed and undirected edges, if you build a
-;    directed graph from an undirected graph, those edges are imported as undirected,
-;    and conversely, if you build an undirected graph from a directed graph, those edges
-;    are imported as directed.
+;; 3. The edges that are returned by edges are not simple vectors, they are a custom Edge
+;;    data structure.  All the functions that consume edges can take this custom Edge
+;;    data structure, or simpler forms like [src dest] if that is enough to uniquely
+;;    identify the edge.  It is recommended that edge-processing algorithms access the
+;;    source and destination nodes using the new Edge protocol (src and dest), rather
+;;    than assuming that an edge is a vector.
+;;
+;; 4. The build-graph semantics are somewhat different from Loom's. Since Ubergraphs
+;;    are capable of holding both directed and undirected edges, if you build a
+;;    directed graph from an undirected graph, those edges are imported as undirected,
+;;    and conversely, if you build an undirected graph from a directed graph, those edges
+;;    are imported as directed.
 
 
-; These are the functions that are too lengthy to define inline
-; in the Ubergraph record.
+;; These are the functions that are too lengthy to define inline
+;; in the Ubergraph record.
 (declare transpose-impl get-edge find-edges-impl find-edge-impl add-node add-edge remove-node remove-edge
          edge-description->edge resolve-node-or-edge
          force-add-directed-edge force-add-undirected-edge remove-edges
@@ -128,30 +131,25 @@
                (with-meta edge g)))
   (has-node? [g node] (boolean (get-in g [:node-map node])))
   (has-edge? [g n1 n2] (boolean (seq (find-edges g n1 n2))))
-  (successors [g] (partial successors g))
-  (successors [g node] (distinct (map dest (out-edges g node))))
+  (successors* [g node] (distinct (map dest (out-edges g node))))
   (out-degree [g node] (get-in g [:node-map node :out-degree]))
-  ;(out-edges [g] (partial out-edges g))
   (out-edges [g node] (map #(with-meta % g) (apply concat (vals (get-in g [:node-map node :out-edges])))))
 
   lg/Digraph
-  (predecessors [g] (partial predecessors g))
-  (predecessors [g node] (map src (in-edges g node)))
+  (predecessors* [g node] (map src (in-edges g node)))
   (in-degree [g node] (get-in g [:node-map node :in-degree]))
-  ;(in-edges [g] (partial in-edges g))
   (in-edges [g node] (map #(with-meta % g) (apply concat (vals (get-in g [:node-map node :in-edges])))))
   (transpose [g] (transpose-impl g))
 
   lg/WeightedGraph
-  ; Ubergraphs by default store weight in an attribute :weight
-  ; Using an attribute allows us to modify the weight with the AttrGraph protocol
-  (weight [g] (partial weight g))
-  (weight [g e] (get-in g [:attrs (:id (edge-description->edge g e)) :weight] 1))
-  (weight [g n1 n2] (get-in g [:attrs (:id (get-edge g n1 n2)) :weight] 1))
+  ;; Ubergraphs by default store weight in an attribute :weight
+  ;; Using an attribute allows us to modify the weight with the AttrGraph protocol
+  (weight* [g e] (get-in g [:attrs (:id (edge-description->edge g e)) :weight] 1))
+  (weight* [g n1 n2] (get-in g [:attrs (:id (get-edge g n1 n2)) :weight] 1))
 
   lg/EditableGraph
   (add-nodes* [g nodes] (reduce add-node g nodes))
-  ; edge definition should be [src dest] or [src dest weight] or [src dest attribute-map]
+  ;; edge definition should be [src dest] or [src dest weight] or [src dest attribute-map]
   (add-edges* [g edge-definitions] (reduce (fn [g edge] (add-edge g edge)) g edge-definitions))
   (remove-nodes* [g nodes] (reduce remove-node g nodes))
   (remove-edges* [g edges] (reduce remove-edge g edges))
@@ -159,42 +157,42 @@
 
   la/AttrGraph
   (add-attr [g node-or-edge k v]
-    (assoc-in g [:attrs (resolve-node-or-edge g node-or-edge) k] v))
+            (assoc-in g [:attrs (resolve-node-or-edge g node-or-edge) k] v))
   (add-attr [g n1 n2 k v] (add-attr g (get-edge g n1 n2) k v))
   (remove-attr [g node-or-edge k]
-    (update-in g [:attrs (resolve-node-or-edge g node-or-edge)] dissoc k))
+               (update-in g [:attrs (resolve-node-or-edge g node-or-edge)] dissoc k))
   (remove-attr [g n1 n2 k] (remove-attr g (get-edge g n1 n2) k))
   (attr [g node-or-edge k]
-    (get-in g [:attrs (resolve-node-or-edge g node-or-edge) k]))
+        (get-in g [:attrs (resolve-node-or-edge g node-or-edge) k]))
   (attr [g n1 n2 k] (attr g (get-edge g n1 n2) k))
   (la/attrs [g node-or-edge]
-    (get-in g [:attrs (resolve-node-or-edge g node-or-edge)] {}))
+            (get-in g [:attrs (resolve-node-or-edge g node-or-edge)] {}))
   (la/attrs [g n1 n2] (la/attrs g (get-edge g n1 n2)))
 
   up/Attrs
   (add-attrs [g node-or-edge attribute-map]
-    (update-in g [:attrs (resolve-node-or-edge g node-or-edge)]
-              merge attribute-map))
+             (update-in g [:attrs (resolve-node-or-edge g node-or-edge)]
+                        merge attribute-map))
   (add-attrs [g n1 n2 attribute-map]
-    (add-attrs g (get-edge g n1 n2) attribute-map))
+             (add-attrs g (get-edge g n1 n2) attribute-map))
   (set-attrs [g node-or-edge attribute-map]
-    (assoc-in g [:attrs (resolve-node-or-edge g node-or-edge)] attribute-map))
+             (assoc-in g [:attrs (resolve-node-or-edge g node-or-edge)] attribute-map))
   (set-attrs [g n1 n2 attribute-map]
-    (set-attrs g (get-edge g n1 n2) attribute-map))
+             (set-attrs g (get-edge g n1 n2) attribute-map))
 
   (remove-attrs [g node-or-edge attributes]
-    (let [m (la/attrs g node-or-edge)]
-      (assoc-in g [:attrs (resolve-node-or-edge g node-or-edge)]
-                (apply dissoc m attributes))))
+                (let [m (la/attrs g node-or-edge)]
+                  (assoc-in g [:attrs (resolve-node-or-edge g node-or-edge)]
+                            (apply dissoc m attributes))))
   (remove-attrs [g n1 n2 attributes]
-    (remove-attrs g (get-edge n1 n2) attributes))
+                (remove-attrs g (get-edge n1 n2) attributes))
 
   up/UndirectedGraph
   (other-direction [g edge]
-   (when (undirected-edge? edge)
-     (let [edge (edge-description->edge g edge),
-           e (assoc edge :src (:dest edge) :dest (:src edge) :mirror? (not (:mirror? edge)))]
-       e)))
+                   (when (undirected-edge? edge)
+                     (let [edge (edge-description->edge g edge),
+                           e (assoc edge :src (:dest edge) :dest (:src edge) :mirror? (not (:mirror? edge)))]
+                       e)))
 
   up/QueryableGraph
   (find-edges [g edge-query] (find-edges-impl g edge-query))
@@ -247,13 +245,13 @@ merge the edges into a single edge, and adding an undirected edge on top of an e
 will `upgrade' the directed edge to undirected and merge attributes."
   [g] (:allow-parallel? g))
 
-; A node-id is anything the user wants it to be -- a number, a keyword, a data structure
-; An edge is something with a src, a dest, and an id that can be used to look up attributes
+;; A node-id is anything the user wants it to be -- a number, a keyword, a data structure
+;; An edge is something with a src, a dest, and an id that can be used to look up attributes
 
-; node-map is a {node-id node-info}
-; node-info is a {:out-edges {dest-id #{edge}} :in-edges {src-id #{edge}}
-;                 :in-degree number :out-degree number}
-; edge is either Edge or UndirectedEdge
+;; node-map is a {node-id node-info}
+;; node-info is a {:out-edges {dest-id #{edge}} :in-edges {src-id #{edge}}
+;;                 :in-degree number :out-degree number}
+;; edge is either Edge or UndirectedEdge
 
 (defrecord NodeInfo [out-edges in-edges out-degree in-degree])
 (defrecord Edge [id src dest]
@@ -268,11 +266,11 @@ will `upgrade' the directed edge to undirected and merge attributes."
   (nth [e i] (case i 0 src 1 dest 2 (attr (meta e) e :weight) nil))
   (nth [e i notFound] (case i 0 src 1 dest 2 (attr (meta e) e :weight) notFound)))
 
-; An UndirectedEdge stores an additional field that signals whether this was the
-; original direction that was added to the graph, or the "mirror" edge that was
-; automatically added to go in the reverse direction.  This is a useful concept
-; because in some undirected graph algorithms, you only want to consider each
-; edge once, so the mirror? field lets you filter out these duplicate reverse edges.
+;; An UndirectedEdge stores an additional field that signals whether this was the
+;; original direction that was added to the graph, or the "mirror" edge that was
+;; automatically added to go in the reverse direction.  This is a useful concept
+;; because in some undirected graph algorithms, you only want to consider each
+;; edge once, so the mirror? field lets you filter out these duplicate reverse edges.
 
 (defrecord UndirectedEdge [id src dest mirror?]
   lg/Edge
@@ -481,7 +479,7 @@ it is an edge."
 
 (defn- remove-edge
   [g edge]
-  ; Check whether edge exists before deleting
+  ;; Check whether edge exists before deleting
   (let [{:keys [src dest id] :as edge} (edge-description->edge g edge)]
     (if (get-in g [:node-map src :out-edges dest edge])
       (if-let
@@ -807,7 +805,7 @@ We're just checking the attributes here"
 
 ;; Visualization
 
-; Dorothy doesn't like attribute maps with values other than numbers, strings, and keywords
+;; Dorothy doesn't like attribute maps with values other than numbers, strings, and keywords
 
 (defn- valid-dorothy-id? [x]
   (or (keyword? x) (string? x) (number? x)))
@@ -820,7 +818,7 @@ We're just checking the attributes here"
 (defn- sanitize-attrs [g i]
   (remove-invalids-from-map (attrs g i)))
 
-; Dorothy has a bug - it doesn't escape backslashes, so we do it here
+;; Dorothy has a bug - it doesn't escape backslashes, so we do it here
 (defn- escape-backslashes [s] (clojure.string/replace s "\\" "\\\\"))
 
 (defn- label [g]
