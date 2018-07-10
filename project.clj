@@ -1,10 +1,10 @@
-(defproject ubergraph "0.5.0"
+(defproject ubergraph "0.5.1"
   :description "Feature-loaded graph implementation"
   :url "http://github.com/engelberg/ubergraph"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.9.0"]
-                 [org.clojure/data.priority-map "0.0.8"]
+                 [org.clojure/data.priority-map "0.0.10"]
                  [aysylu/loom "1.0.1"]
                  [dorothy "0.0.6"]
                  [potemkin "0.4.3"]]

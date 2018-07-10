@@ -845,37 +845,38 @@ We're just checking the attributes here"
 
 (defn viz-graph
   "Uses graphviz to generate a visualization of your graph. Graphviz
-must be installed on your computer and in your path. Passes along
-to graphviz the attributes on the nodes and edges, so graphviz-related
-attributes such as color, style, label, etc. will be respected.
+  must be installed on your computer and in your path. Passes along
+  to graphviz the attributes on the nodes and edges, so graphviz-related
+  attributes such as color, style, label, etc. will be respected.
 
-Takes an optional map which can contain:
-:auto-label true (labels each node/edge with its attribute map)
-:layout :dot, :neato, :fdp, :sfdp, :twopi, or :circo
-:save {:filename _, :format _} where format is one of
-  :bmp :eps :gif :ico :jpg :jpeg :pdf :png :ps :ps2 :svgz :tif :tiff :vmlz :wbmp
-Additionally map can contain graph attributes for graphviz like :bgcolor, :label, :splines, ..."
+  Takes an optional map which can contain:
+  :auto-label true (labels each node/edge with its attribute map)
+  :layout :dot, :neato, :fdp, :sfdp, :twopi, or :circo
+  :save {:filename _, :format _} where format is one of
+  :bmp :dot :eps :gif :ico :jpg :jpeg :pdf :png :ps :ps2 :svgz :tif :tiff :vmlz :wbmp
+  Additionally map can contain graph attributes for graphviz like :bgcolor, :label, :splines, ..."
   ([g] (viz-graph g {}))
   ([g {layout :layout {filename :filename format :format :as save} :save
        auto-label :auto-label
        :as opts
        :or {layout :dot}}]
-    (let [g (if auto-label (label g) g)
-          ns (nodes g),
-          es (edges g)
-          nodes (for [n ns]
-                  [(dotid n)
-                   (sanitize-attrs g n)]),
-          directed-edges (for [e es :when (directed-edge? e)]
-                           [(dotid (src e)) (dotid (dest e)) (sanitize-attrs g e)])
-          undirected-edges (for [e es :when (and (undirected-edge? e)
-                                                 (not (mirror-edge? e)))]
-                             [(dotid (src e)) (dotid (dest e))
-                              (merge {:dir :none} (sanitize-attrs g e))])]
-      (-> (concat [(merge {:layout layout} (dissoc opts :layout :save :auto-label))]
-                  nodes directed-edges undirected-edges)
-        d/digraph
-        d/dot
-        (cond->
-          save (d/save! filename {:format format})
-          (not save) d/show!)))))
+   (let [g (if auto-label (label g) g)
+         ns (nodes g),
+         es (edges g)
+         nodes (for [n ns]
+                 [(dotid n)
+                  (sanitize-attrs g n)]),
+         directed-edges (for [e es :when (directed-edge? e)]
+                          [(dotid (src e)) (dotid (dest e)) (sanitize-attrs g e)])
+         undirected-edges (for [e es :when (and (undirected-edge? e)
+                                                (not (mirror-edge? e)))]
+                            [(dotid (src e)) (dotid (dest e))
+                             (merge {:dir :none} (sanitize-attrs g e))])]
+     (-> (concat [(merge {:layout layout} (dissoc opts :layout :save :auto-label))]
+                 nodes directed-edges undirected-edges)
+         d/digraph
+         d/dot
+         (cond->
+             (and save (= :dot format)) (#(spit filename %))
+             (and save (not= :dot format)) (d/save! filename {:format format})
+             (not save) d/show!)))))

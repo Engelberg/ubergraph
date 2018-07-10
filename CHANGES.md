@@ -1,5 +1,11 @@
 # Ubergraph Change Log
 
+## 0.5.1
+
+### Enhancements
+
+* Added :dot file format option to viz-graph, to write out the file in GraphViz's dot format.
+
 ## 0.5.0
 
 ### Upgrades
