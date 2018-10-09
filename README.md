@@ -18,7 +18,7 @@ Ubergraph is a great choice for people who:
 
 Add the following line to your leiningen dependencies:
 
-	[ubergraph "0.5.1"]
+	[ubergraph "0.5.2"]
 
 Require ubergraph in your namespace header:
 

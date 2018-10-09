@@ -335,9 +335,10 @@ from one of the starting nodes to a node that satisfies the goal? predicate."
                                     (.get least-costs node) node)]
               (> cost-from-start-to-node (.get least-costs node)) (recur)
               :else
-              (cons (->Path (find-path node (Collections/unmodifiableMap backlinks)) (.get least-costs node))
+              (cons (->Path (delay (find-path node (Collections/unmodifiableMap backlinks)))
+                            (.get least-costs node) node)
                     (lazy-seq 
-                      (do (explore-node node cost-from-start-to-node) (stepfn)))))))]
+                     (do (explore-node node cost-from-start-to-node) (stepfn)))))))]
     (stepfn)))
         
 (defn- least-cost-path-with-heuristic

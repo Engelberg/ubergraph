@@ -1,5 +1,11 @@
 # Ubergraph Change Log
 
+## 0.5.2
+
+### Bugfixes
+
+* Fixed bug reported by Andy Fingerhut in least-cost-path-with-heuristic
+
 ## 0.5.1
 
 ### Enhancements
