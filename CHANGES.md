@@ -1,5 +1,11 @@
 # Ubergraph Change Log
 
+## 0.5.3
+
+### Bugfixes
+
+* `predecessors` potentially returned duplicates. Now calls `distinct` on output, matching the behavior of `successors`.
+
 ## 0.5.2
 
 ### Bugfixes

@@ -136,7 +136,7 @@
   (out-edges [g node] (map #(with-meta % g) (apply concat (vals (get-in g [:node-map node :out-edges])))))
 
   lg/Digraph
-  (predecessors* [g node] (map src (in-edges g node)))
+  (predecessors* [g node] (distinct (map src (in-edges g node))))
   (in-degree [g node] (get-in g [:node-map node :in-degree]))
   (in-edges [g node] (map #(with-meta % g) (apply concat (vals (get-in g [:node-map node :in-edges])))))
   (transpose [g] (transpose-impl g))
