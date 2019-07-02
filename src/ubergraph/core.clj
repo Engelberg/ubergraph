@@ -818,8 +818,24 @@ We're just checking the attributes here"
 (defn- sanitize-attrs [g i]
   (remove-invalids-from-map (attrs g i)))
 
-;; Dorothy has a bug - it doesn't escape backslashes, so we do it here
-(defn- escape-backslashes [s] (clojure.string/replace s "\\" "\\\\"))
+;; Dorothy has a bug - it doesn't escape backslashes, so we do it here.
+;; Also replace several other special characters that cause problems
+;; for Graphviz dot when they appear as part of labels.
+(def dorothy-label-char-replacement-map
+  {(char 0) "\\\\u0000"
+   (char 65534) "\\\\ufffe"
+   (char 65535) "\\\\uffff"
+   \\ "\\\\"})
+
+(defn escape-label
+  "Takes a string intended to be used as a node or edge label in a
+  Graphviz graph, and returns a string with several characters that
+  cause problems for Graphviz with suitable replacements.  Called for
+  you automatically if you use the ':auto-label true' option of the
+  viz-graph function, but you may want to use it for label strings you
+  provide to viz-graph when you do not use that option."
+  [s]
+  (clojure.string/escape s dorothy-label-char-replacement-map))
 
 (defn- label [g]
   (as-> g $
@@ -827,12 +843,12 @@ We're just checking the attributes here"
       (fn [g n]
         (add-attr g n :label (str (if (keyword? n) (name n) n)
                                   \newline
-                                  (escape-backslashes (with-out-str (clojure.pprint/pprint (attrs g n)))))))
+                                  (escape-label (with-out-str (clojure.pprint/pprint (attrs g n)))))))
       $ (nodes g))
     (reduce
       (fn [g e]
         (if (not (mirror-edge? e))
-          (add-attr g e :label (escape-backslashes (with-out-str (clojure.pprint/pprint (attrs g e)))))
+          (add-attr g e :label (escape-label (with-out-str (clojure.pprint/pprint (attrs g e)))))
           g))
       $ (edges g))))
 
