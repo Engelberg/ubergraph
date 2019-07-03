@@ -310,3 +310,14 @@
              (do-find-edges g6 {:position 5})))
       (is (= (make-edges :x :y)
              (do-find-edges g6 {:type "global" :position 5}))))))
+
+(deftest github-issue-38
+  (let [g1 (multidigraph [1 {:label "n1"}]
+                         [2 {:label "n2"}]
+                         [1 2 {:label "edge12"}])
+        g2 (remove-nodes g1 2)
+        g3 (add-nodes g2 2)]
+    (is (= (attrs g1 2) {:label "n2"}))
+    ;; There should be no attributes for a node that was removed, then
+    ;; added back again without any attributes.
+    (is (= (attrs g3 2) {}))))

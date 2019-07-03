@@ -333,7 +333,8 @@ will `upgrade' the directed edge to undirected and merge attributes."
   (-> g
     (remove-edges* (out-edges g node))
     (remove-edges* (in-edges g node))
-    (update-in [:node-map] dissoc node)))
+    (update-in [:node-map] dissoc node)
+    (update-in [:attrs] dissoc node)))
 
 (def ^:private fconj (fnil conj #{}))
 (def ^:private finc (fnil inc 0))
