@@ -321,3 +321,18 @@
     ;; There should be no attributes for a node that was removed, then
     ;; added back again without any attributes.
     (is (= (attrs g3 2) {}))))
+
+(deftest github-issue-38-edges
+  ;; This was already behaving correctly before Github issue #38 was
+  ;; filed.  Adding a test case for the extra assurance and catching
+  ;; future possible regressions.
+  (let [g1 (multidigraph [1 {:label "n1"}]
+                         [2 {:label "n2"}]
+                         [1 2 {:label "edge12"}])
+        g2 (remove-edges g1 [1 2])
+        g3 (add-edges g2 [1 2])]
+    (is (= (attrs g1 [1 2]) {:label "edge12"}))
+    (is (= (attrs g2 [1 2]) {}))
+    ;; There should be no attributes for an edge that was removed,
+    ;; then added back again without any attributes.
+    (is (= (attrs g3 [1 2]) {}))))
