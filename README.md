@@ -262,9 +262,29 @@ The general-purpose `ubergraph` constructor takes two booleans (allow-parallel-e
 
 You can test to find out what kind of ubergraph you have with the predicates `allow-parallel-edges?` and `undirected-graph?`.  (Keep in mind that `undirected-graph?` just tests whether new edges are added as undirected by default.  You can override this behavior for specific edges.)
 
+
+### Notes on Ubergraph's data model
+
+Nodes are used internally as keys in Clojure maps within Ubergraph's implementation, so you should pick values to represent nodes that work as keys in hash maps.  Any Clojure immutable values where Clojure's `hash` function is consistent with `=` will work, which includes most immutable values, i.e. numbers, strings, keywords, and Clojure vectors, maps, sets, and sequences that contain only immutable values.  See [Clojure's Equality guide](https://clojure.org/guides/equality) for a handful of exceptions.  Ubergraph does not fully support nil as a node value in all APIs, and it is recommended to avoid it.
+
+The attributes of a node are stored inside the graph value.  They are not somehow "attached" to nodes independently of a graph.  Thus node attributes are independent in different graphs, even if those graphs use the same values to represent nodes.
+
+Edges are effectively represented as a pair of nodes plus an internally generated UUID so that every newly created edge is unique.  The methods for adding edges to a graph do not take an edge object directly, only pairs of nodes, plus optional attributes, so there is no way to add an edge object from one graph to another.  This helps prevent accidentally having two edges in different graphs with the same UUID, or from attempting to add the same edge with the same UUID to the same graph multiple times.
+
+While edge objects are immutable values, and in some case it may appear to work to take edge objects returned via `find-edge` (and other functions), and add them as nodes to the same or other graphs, this is not supported.  In particular, this can definitely cause problems with attributes.
+
+
 ### Equality
 
 As you build up graphs, random uuids are generated to link edges to attributes.  This randomness means that two graphs which are semantically equal might not necessarily be structurally equal in the Clojure sense.  The hashing and equality for Ubergraphs has been overridden to reflect an intuitive notion of equality, so you can trust, for example that (= (graph [1 2]) (graph [1 2])) even though the two graphs contain different uuids.
+
+Two Ubergraph graphs `g1` and `g2` are equal if all of the following are true:
+
+* `g1` and `g2` have the same set of node values.
+* For every node `n`, the entire attribute map of `n` in `g1` is equal to the entire attribute map of `n` in `g2`
+* For every pair of nodes `n1`, `n2`, the edge(s) between them, ignoring edge uuids, but including the directionality and the entire attribute map for every edge, is equal.  For graphs allowing parallel edges, these are compared as multisets, i.e. if `g1` has 3 edges with attribute map `{:label 17}` and 2 edges with an empty attribute map, then `g2` must also have 3 edges with attribute map `{:label 17}` and 2 edges with an empty attribute map, to be equal to `g1`.
+
+[Graph ismorphism](https://en.wikipedia.org/wiki/Graph_isomorphism) is a more general idea of equality between graphs, in which nodes can be "relabeled" before comparing to see if they have the same edges.  That is a much more computationally expensive idea of graph equality to determine, and is not what Ubergraph `=` between graphs determines.  Thus `(= (graph [1 2]) (graph [2 3]))` is false, even though they both have two nodes with a single edge between them, so they would be considered isomorphic.
 
 ### Algorithms
 
