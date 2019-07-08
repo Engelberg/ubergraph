@@ -271,7 +271,7 @@ The attributes of a node are stored inside the graph value.  They are not someho
 
 Edges are effectively represented as a pair of nodes plus an internally generated UUID so that every newly created edge is unique.  The methods for adding edges to a graph do not take an edge object directly, only pairs of nodes, plus optional attributes, so there is no way to add an edge object from one graph to another.  This helps prevent accidentally having two edges in different graphs with the same UUID, or from attempting to add the same edge with the same UUID to the same graph multiple times.
 
-While edge objects are immutable values, and in some case it may appear to work to take edge objects returned via `find-edge` (and other functions), and add them as nodes to the same or other graphs, this is not supported.  In particular, this can definitely cause problems with attributes.
+While edge objects are immutable values, and in some cases it may appear to work to take edge objects returned via `find-edge` (and other functions), and add them as nodes to the same or other graphs, this is not supported.  In particular, this can definitely cause problems with attributes.
 
 
 ### Equality
