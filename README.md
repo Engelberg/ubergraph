@@ -265,7 +265,7 @@ You can test to find out what kind of ubergraph you have with the predicates `al
 
 ### Notes on Ubergraph's data model
 
-Nodes are used internally as keys in Clojure maps within Ubergraph's implementation, so you should pick values to represent nodes that work as keys in hash maps.  Any Clojure immutable values where Clojure's `hash` function is consistent with `=` will work, which includes most immutable values, i.e. numbers, strings, keywords, and Clojure vectors, maps, sets, and sequences that contain only immutable values.  See [Clojure's Equality guide](https://clojure.org/guides/equality) for a handful of exceptions.  Ubergraph does not fully support nil as a node value in all APIs, and it is recommended to avoid it.
+Nodes are used internally as keys in Clojure maps within Ubergraph's implementation, so you should pick values to represent nodes that work as keys in hash maps.  Any Clojure immutable values where Clojure's `hash` function is consistent with `=` will work, which includes most immutable values, i.e. numbers, strings, keywords, and Clojure vectors, maps, sets, and sequences that contain only immutable values.  See [Clojure's Equality guide](https://clojure.org/guides/equality) for a handful of exceptions.  Both Loom and Ubergraph will give incorrect return results for some functions if you use `nil` or `false` as a node value, and it is strongly recommended that you avoid using them.
 
 The attributes of a node are stored inside the graph value.  They are not somehow "attached" to nodes independently of a graph.  Thus node attributes are independent in different graphs, even if those graphs use the same values to represent nodes.
 
