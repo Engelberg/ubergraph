@@ -825,7 +825,7 @@ We're just checking the attributes here"
   (as-> g $
     (reduce
       (fn [g n]
-        (add-attr g n :label (str (if (keyword? n) (name n) n)
+        (add-attr g n :label (str (if (keyword? n) (subs (str n) 1) n)
                                   \newline
                                   (escape-backslashes (with-out-str (clojure.pprint/pprint (attrs g n)))))))
       $ (nodes g))
