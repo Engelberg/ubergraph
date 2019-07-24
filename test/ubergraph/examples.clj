@@ -16,6 +16,9 @@
 (def graph4
   (uber/add-directed-edges graph2 [:a :d 8]))
 
+(def graph5
+  (uber/multidigraph [:a :b] [:a :b] [:b :a] [:a :c]))
+
 
 (deftest test-equal-graphs?
   (are [x y] (= x y)
@@ -58,3 +61,41 @@
   (is (= true
          (= (uber/graph 1)
             (uber/add-attrs (uber/graph 1) 1 {})))))
+
+;; successors and predecessors should not return duplicates, and
+;; should return only nodes of the graph.
+(defn no-duplicates? [coll]
+  (or (empty? coll)
+      (apply distinct? coll)))
+
+(defn all-in-graph? [g coll]
+  (every? #(uber/has-node? g %) coll))
+
+(defn slow-successors [g n]
+  (distinct (map uber/dest (uber/out-edges g n))))
+
+(defn slow-predecessors [g n]
+  (distinct (map uber/src (uber/in-edges g n))))
+
+(defn all-good-succ-pred? [g msg]
+  (doseq [n (uber/nodes g)]
+    (is (= true (no-duplicates? (uber/successors g n)))
+        (str msg " successors have duplicates"))
+    (is (= true (no-duplicates? (uber/predecessors g n)))
+        (str msg " predecessors have duplicates"))
+    (is (= true (all-in-graph? g (uber/successors g n)))
+        (str msg " successors not all nodes in graph"))
+    (is (= true (all-in-graph? g (uber/predecessors g n)))
+        (str msg " predecessors not all nodes in graph"))
+    (is (= (set (uber/successors g n)) (set (slow-successors g n)))
+        (str msg " successors not equal to slow-successors"))
+    (is (= (set (uber/predecessors g n)) (set (slow-predecessors g n)))
+        (str msg " predecessors not equal to slow-predecessors"))))
+
+(deftest test-successors-predecessors
+  (all-good-succ-pred? graph1 "graph1")
+  (all-good-succ-pred? graph2 "graph2")
+  (all-good-succ-pred? graph3 "graph3")
+  (all-good-succ-pred? graph4 "graph4")
+  (all-good-succ-pred? graph5 "graph5")
+  (all-good-succ-pred? (uber/remove-edges graph1 [:b :d]) "graph1-edge-removed"))

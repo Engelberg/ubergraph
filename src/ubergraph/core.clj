@@ -131,12 +131,12 @@
                (with-meta edge g)))
   (has-node? [g node] (boolean (get-in g [:node-map node])))
   (has-edge? [g n1 n2] (boolean (seq (find-edges g n1 n2))))
-  (successors* [g node] (distinct (map dest (out-edges g node))))
+  (successors* [g node] (keys (get-in g [:node-map node :out-edges])))
   (out-degree [g node] (get-in g [:node-map node :out-degree]))
   (out-edges [g node] (map #(with-meta % g) (apply concat (vals (get-in g [:node-map node :out-edges])))))
 
   lg/Digraph
-  (predecessors* [g node] (distinct (map src (in-edges g node))))
+  (predecessors* [g node] (keys (get-in g [:node-map node :in-edges])))
   (in-degree [g node] (get-in g [:node-map node :in-degree]))
   (in-edges [g node] (map #(with-meta % g) (apply concat (vals (get-in g [:node-map node :in-edges])))))
   (transpose [g] (transpose-impl g))
@@ -478,6 +478,12 @@ it is an edge."
           (catch IllegalArgumentException e
             (throw (IllegalArgumentException. (str "Invalid node or edge description: " node-or-edge)))))))
 
+(defn- remove-edge-also-node-if-last-edge [node->edge-set node edge]
+  (let [remaining-edges (disj (node->edge-set node) edge)]
+    (if (seq remaining-edges)
+      (assoc node->edge-set node remaining-edges)
+      (dissoc node->edge-set node))))
+
 (defn- remove-edge
   [g edge]
   ;; Check whether edge exists before deleting
@@ -487,19 +493,25 @@ it is an edge."
         [reverse-edge (other-direction g edge)]
         (-> g
           (update-in [:attrs] dissoc id)
-          (update-in [:node-map src :out-edges dest] disj edge)
-          (update-in [:node-map src :in-edges dest] disj reverse-edge)
+          (update-in [:node-map src :out-edges]
+                     remove-edge-also-node-if-last-edge dest edge)
+          (update-in [:node-map src :in-edges]
+                     remove-edge-also-node-if-last-edge dest reverse-edge)
           (update-in [:node-map src :in-degree] dec)
           (update-in [:node-map src :out-degree] dec)
-          (update-in [:node-map dest :out-edges src] disj reverse-edge)
-          (update-in [:node-map dest :in-edges src] disj edge)
+          (update-in [:node-map dest :out-edges]
+                     remove-edge-also-node-if-last-edge src reverse-edge)
+          (update-in [:node-map dest :in-edges]
+                     remove-edge-also-node-if-last-edge src edge)
           (update-in [:node-map dest :in-degree] dec)
           (update-in [:node-map dest :out-degree] dec))
         (-> g
           (update-in [:attrs] dissoc id)
-          (update-in [:node-map src :out-edges dest] disj edge)
+          (update-in [:node-map src :out-edges]
+                     remove-edge-also-node-if-last-edge dest edge)
           (update-in [:node-map src :out-degree] dec)
-          (update-in [:node-map dest :in-edges src] disj edge)
+          (update-in [:node-map dest :in-edges]
+                     remove-edge-also-node-if-last-edge src edge)
           (update-in [:node-map dest :in-degree] dec)))
       g)))
 
