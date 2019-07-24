@@ -119,7 +119,7 @@
 (declare transpose-impl get-edge find-edges-impl find-edge-impl add-node add-edge remove-node remove-edge
          edge-description->edge resolve-node-or-edge
          force-add-directed-edge force-add-undirected-edge remove-edges
-         equal-graphs? hash-graph)
+         equal-graphs? hash-graph build-graph)
 
 (def-map-type Ubergraph [node-map allow-parallel? undirected? attrs cached-hash]
   AbstractMap
@@ -410,21 +410,23 @@ will `upgrade' the directed edge to undirected and merge attributes."
   (if (number? n) {:weight n} n))
 
 (defn- add-edge
-  [g [src dest attributes]]
-  (let [attributes (number->map attributes)]
-    (cond
-      (and (not (:allow-parallel? g)) (get-edge g src dest))
-      (if attributes
-        (update-in g [:attrs (:id (get-edge g src dest))]
-                   merge attributes)
-        g)
-
-      (:undirected? g) (add-undirected-edge g src dest attributes)
-      :else (add-directed-edge g src dest attributes))))
-
+  [g [src dest attributes :as edge]]
+  (if (edge? edge) (throw (ex-info "add-edges takes an edge description, not Edge objects. Use build-graph instead." {:edge edge}))
+      ;; build-graph has logic for adding actual edge objects, so we direct users to that function instead
+      (let [attributes (number->map attributes)]
+        (cond
+          (and (not (:allow-parallel? g)) (get-edge g src dest))
+          (if attributes
+            (update-in g [:attrs (:id (get-edge g src dest))]
+                       merge attributes)
+            g)
+          
+          (:undirected? g) (add-undirected-edge g src dest attributes)
+          :else (add-directed-edge g src dest attributes)))))
+  
 (defn- force-add-directed-edge
-  [g [src dest attributes]]
-  (let [attributes (number->map attributes)]
+  [g [src dest attributes :as edge]]
+  (let [attributes (if (edge? edge) (attrs (meta edge) edge) (number->map attributes))]
     (cond
       (and (not (:allow-parallel? g)) (get-edge g src dest))
       (if attributes
@@ -434,15 +436,15 @@ will `upgrade' the directed edge to undirected and merge attributes."
       :else (add-directed-edge g src dest attributes))))
 
 (defn- force-add-undirected-edge
-  [g [src dest attributes]]
-  (let [attributes (number->map attributes)]
+  [g [src dest attributes :as edge]]
+  (let [attributes (if (edge? edge) (attrs (meta edge) edge) (number->map attributes))]
     (cond
       (and (not (:allow-parallel? g)) (or (get-edge g src dest)
-                 (get-edge g dest src)))
+                                          (get-edge g dest src)))
       (let [new-attrs (merge (attrs g src dest) (attrs g dest src) attributes)]
         (-> g
-          (remove-edges [src dest] [dest src])
-          (add-undirected-edge src dest attributes)))
+            (remove-edges [src dest] [dest src])
+            (add-undirected-edge src dest attributes)))
       :else (add-undirected-edge g src dest attributes))))
 
 (defn edge-description->edge
@@ -480,9 +482,9 @@ it is an edge."
 
 (defn- remove-edge-also-node-if-last-edge [node->edge-set node edge]
   (let [remaining-edges (disj (node->edge-set node) edge)]
-    (if (seq remaining-edges)
-      (assoc node->edge-set node remaining-edges)
-      (dissoc node->edge-set node))))
+    (if (zero? (count remaining-edges))
+      (dissoc node->edge-set node)
+      (assoc node->edge-set node remaining-edges))))
 
 (defn- remove-edge
   [g edge]

@@ -18,7 +18,7 @@ Ubergraph is a great choice for people who:
 
 Add the following line to your leiningen dependencies:
 
-	[ubergraph "0.5.3"]
+	[ubergraph "0.6.0"]
 
 Require ubergraph in your namespace header:
 
@@ -31,7 +31,7 @@ For example, rather than calling `loom.graph/out-edges` and `loom.attr/add-attr`
 
 ### Requirements
 
-Ubergraph is tested on Clojure 1.9.  Some of the graph algorithms require Java 8 or greater.
+Ubergraph is tested on Clojure 1.10.  Some of the graph algorithms require Java 8 or greater.
 
 ### API
 
@@ -265,14 +265,13 @@ You can test to find out what kind of ubergraph you have with the predicates `al
 
 ### Notes on Ubergraph's data model
 
-Nodes are used internally as keys in Clojure maps within Ubergraph's implementation, so you should pick values to represent nodes that work as keys in hash maps.  Any Clojure immutable values where Clojure's `hash` function is consistent with `=` will work, which includes most immutable values, i.e. numbers, strings, keywords, and Clojure vectors, maps, sets, and sequences that contain only immutable values.  See [Clojure's Equality guide](https://clojure.org/guides/equality) for a handful of exceptions.  Both Loom and Ubergraph will give incorrect return results for some functions if you use `nil` or `false` as a node value, and it is strongly recommended that you avoid using them.
+Nodes are used internally as keys in Clojure maps within Ubergraph's implementation, so you should pick values to represent nodes that work as keys in hash maps.  Any Clojure immutable values where Clojure's `hash` function is consistent with `=` will work, which includes most immutable values, i.e. numbers, strings, keywords, and Clojure vectors, maps, sets, and sequences that contain only immutable values.  See [Clojure's Equality guide](https://clojure.org/guides/equality) for a handful of exceptions.  Both Loom and Ubergraph will give incorrect return results for some functions if you use `nil` or `false` as a node value, so it is strongly recommended that you avoid using them as nodes.
 
-The attributes of a node are stored inside the graph value.  They are not somehow "attached" to nodes independently of a graph.  Thus node attributes are independent in different graphs, even if those graphs use the same values to represent nodes.
+The attributes of a node are stored inside the *graph* value.  They are not somehow "attached" to nodes independently of a graph.  Thus node attributes are independent in different graphs, even if those graphs use the same values to represent nodes.
 
-Edges are effectively represented as a pair of nodes plus an internally generated UUID so that every newly created edge is unique.  The methods for adding edges to a graph do not take an edge object directly, only pairs of nodes, plus optional attributes, so there is no way to add an edge object from one graph to another.  This helps prevent accidentally having two edges in different graphs with the same UUID, or from attempting to add the same edge with the same UUID to the same graph multiple times.
+Edges are effectively represented as a pair of nodes plus an internally generated UUID so that every newly created edge is unique. There are several ways to create new edges, and most commonly you will create edges by specifiying a pair of nodes plus optional attributes. However, the `build-graph` function allows you to add Edge objects from other graphs; when you do so, it will preserve the src and dest, whether the Edge is directed or undirected, and the attributes that were associated with the Edge at the time you retrieved it from its graph -- but a fresh UUID is always assigned to avoid any possible conflict between edges.
 
-While edge objects are immutable values, and in some cases it may appear to work to take edge objects returned via `find-edge` (and other functions), and add them as nodes to the same or other graphs, this is not supported.  In particular, this can definitely cause problems with attributes.
-
+While edge objects returned via `find-edge` (and other functions) are immutable values, don't add ubergraph's edge objects as nodes to the same or other graphs; this is not supported. In particular, this can cause problems with attributes.
 
 ### Equality
 
@@ -579,7 +578,7 @@ Clearly, a lower-bound on how far a word is from another word is the number of l
   (apply + (for [[l1 l2] (map vector w1 w2),
                  :when (not= l1 l2)]
              1)))
-             
+
 => (time (alg/nodes-in-path (alg/shortest-path wg 
                                {:start-node "amigo" :end-node "enter"
                                 :heuristic-fn #(word-edit-distance % "enter")})))

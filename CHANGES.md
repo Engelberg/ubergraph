@@ -1,5 +1,21 @@
 # Ubergraph Change Log
 
+## 0.6.0
+
+### Bugfixes
+
+* Thanks to Andy Fingerhut: Removing a node didn't remove its attributes, so if you removed a node and added it back, the old attribute information would still be there.
+
+### Enhancements
+
+* Thanks to Andy Fingerhut: Speed improvements to `predecessors` and `successors`
+* Thanks to Andy Fingerhut: Clearer documentation about data model and equality
+* Thanks to Andy Fingerhut: Better escaping for more characters in graphviz
+* Thanks to Szabó Krisztián: Namespaced keywords show namespace now in graphviz
+* Bumped dependencies to latest versions of Clojure and potemkin
+* Improved handling of Edge objects when passed to `add-directed-edges` and `add-undirected-edges`.
+* Disallow Edge objects passed to `add-edges` to avoid confusion. `build-graph` has the most sophisticated handling for Edge objects and is the best function to use to "import" Edges from other graphs. Alternatively, `add-directed-edges` or `add-undirected-edges` can extract a [src dest attribute-map] edge description from an Edge object and use that to create a new directed or undirected edge, respectively.
+
 ## 0.5.3
 
 ### Bugfixes
