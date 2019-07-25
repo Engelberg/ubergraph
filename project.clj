@@ -8,7 +8,6 @@
                  [aysylu/loom "1.0.2"]
                  [dorothy "0.0.6"]
                  [potemkin "0.4.5"]]
-  :profiles {:master {:dependencies [[org.clojure/clojure "1.11.0-master-SNAPSHOT"]]}}
   :codox {:output-path "doc"
           :namespaces [ubergraph.core ubergraph.alg]
           :source-uri "http://github.com/Engelberg/ubergraph/tree/master/{filepath}#L{line}"}
