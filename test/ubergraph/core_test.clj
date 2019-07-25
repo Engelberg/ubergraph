@@ -352,4 +352,4 @@
     (is (integer? (hash g2)))
     ;; This will use calculated hashes during =, but should still be
     ;; true.
-    (is (= g1 g2))))
+    (is (= g2 g1))))

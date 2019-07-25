@@ -788,7 +788,7 @@ We're just checking the attributes here"
 
 (defn- node-set [^Ubergraph g]
   (let [^java.util.Map m (:node-map g)]
-    (set (keys m))))
+    (.keySet m)))
 
 (defn- equal-graphs? [^Ubergraph g1 ^Ubergraph g2]
   (or (.equals g1 g2)
@@ -811,7 +811,7 @@ We're just checking the attributes here"
         val @h]
     (if (= val -1)
       (let [ns (node-set g),
-            code (hash {:nodes ns,
+            code (hash {:nodes (hash-unordered-coll ns),
                         :node-attrs (node-attrs g),
                         :edges (edges-freqs g)})]
         (reset! h code)
