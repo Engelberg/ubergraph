@@ -538,7 +538,7 @@ it is an edge."
   (add-directed-edges* g edges))
 
 (defn add-undirected-edges
-  "Adds directed edges, regardless of whether the underlying graph is directed or undirected"
+  "Adds undirected edges, regardless of whether the underlying graph is directed or undirected"
   [g & edges]
   (add-undirected-edges* g edges))
 
@@ -811,7 +811,7 @@ We're just checking the attributes here"
         val @h]
     (if (= val -1)
       (let [ns (node-set g),
-            code (hash {:nodes ns,
+            code (hash {:nodes (hash-unordered-coll ns),
                         :node-attrs (node-attrs g),
                         :edges (edges-freqs g)})]
         (reset! h code)

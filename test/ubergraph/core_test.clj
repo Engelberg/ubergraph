@@ -336,3 +336,20 @@
     ;; There should be no attributes for an edge that was removed,
     ;; then added back again without any attributes.
     (is (= (attrs g3 [1 2]) {}))))
+
+(deftest equality-still-true-after-caching-hash
+  (let [g1 (graph [(Integer. -1) (Integer. -2)])
+        g2 (graph [(Long. -1) (Long. -2)])]
+    ;; No cached hashes calculated yet, so ignored by this =
+    ;; comparison, which returns true
+    ;; because (= (Integer. -1) (Long. -1)) is true in Clojure.  Those
+    ;; values were selected because clojure.core/= is true between
+    ;; them, but Java .hashCode is different between them.
+    ;; clojure.core/hash is the same for both.
+    (is (= g1 g2))
+    ;; Force hashes to be calculated and cached.
+    (is (integer? (hash g1)))
+    (is (integer? (hash g2)))
+    ;; This will use calculated hashes during =, but should still be
+    ;; true.
+    (is (= g2 g1))))
