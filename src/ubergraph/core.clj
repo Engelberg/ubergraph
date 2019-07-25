@@ -538,7 +538,7 @@ it is an edge."
   (add-directed-edges* g edges))
 
 (defn add-undirected-edges
-  "Adds directed edges, regardless of whether the underlying graph is directed or undirected"
+  "Adds undirected edges, regardless of whether the underlying graph is directed or undirected"
   [g & edges]
   (add-undirected-edges* g edges))
 
@@ -788,7 +788,7 @@ We're just checking the attributes here"
 
 (defn- node-set [^Ubergraph g]
   (let [^java.util.Map m (:node-map g)]
-    (.keySet m)))
+    (set (keys m))))
 
 (defn- equal-graphs? [^Ubergraph g1 ^Ubergraph g2]
   (or (.equals g1 g2)
