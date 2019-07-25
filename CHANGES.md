@@ -1,5 +1,12 @@
 # Ubergraph Change Log
 
+## 0.6.1
+
+### Bugfixes
+
+* Fixed docstring in add-undirected-edges
+* Fixed hash value for graph, which in some cases did not match equality semantics.
+
 ## 0.6.0
 
 ### Bugfixes
