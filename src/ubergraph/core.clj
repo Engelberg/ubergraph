@@ -185,7 +185,7 @@
                   (assoc-in g [:attrs (resolve-node-or-edge g node-or-edge)]
                             (apply dissoc m attributes))))
   (remove-attrs [g n1 n2 attributes]
-                (remove-attrs g (get-edge n1 n2) attributes))
+                (remove-attrs g (get-edge g n1 n2) attributes))
 
   up/UndirectedGraph
   (other-direction [g edge]
@@ -473,7 +473,12 @@ an edge object."
 but this function also passes nodes through unchanged, and extracts the edge id if
 it is an edge."
   [g node-or-edge]
-  (cond (edge? node-or-edge) (:id node-or-edge)
+  (cond (edge? node-or-edge)
+        (if (contains? (get-in g [:node-map (src node-or-edge)
+                                  :out-edges (dest node-or-edge)])
+                       node-or-edge)
+          (:id node-or-edge)
+          (throw (IllegalArgumentException. (str "edge does not exist in graph g: " node-or-edge))))
         (has-node? g node-or-edge) node-or-edge
         :else
         (try (:id (edge-description->edge g node-or-edge))
