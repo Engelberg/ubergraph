@@ -353,3 +353,46 @@
     ;; This will use calculated hashes during =, but should still be
     ;; true.
     (is (= g2 g1))))
+
+
+(defn all-edges-with-meta-g [g edges]
+  (every? (fn [e]
+            (and (edge? e)
+                 (= g (meta e))))
+          edges))
+
+
+(defn check-all-edge-returning-fns [g]
+  (let [es1 (edges g)
+        es2 (out-edges g 1)
+        es3 (in-edges g 3)
+        es4 (find-edges g 2 3)
+        es5 (find-edges g {:src 2 :dest 3})
+        es6 (find-edge g 2 3)
+        es7 (find-edge g {:src 2 :dest 3})]
+    (is (> (count es1) 0))
+    (is (= true (all-edges-with-meta-g g es1)))
+    (is (> (count es2) 0))
+    (is (= true (all-edges-with-meta-g g es2)))
+    (is (> (count es3) 0))
+    (is (= true (all-edges-with-meta-g g es3)))
+    (is (> (count es4) 0))
+    (is (= true (all-edges-with-meta-g g es4)))
+    (is (> (count es5) 0))
+    (is (= true (all-edges-with-meta-g g es5)))
+
+    (is (not (nil? es6)))
+    (is (= true (all-edges-with-meta-g g [es6])))
+    (is (not (nil? es7)))
+    (is (= true (all-edges-with-meta-g g [es7])))))
+
+
+(deftest returned-edge-objects-contain-g-in-metadata
+  (let [g1 (graph [1 2] [1 3] [2 3] 4)
+        g2 (digraph [1 2] [1 3] [2 3] 4)
+        g3 (multigraph [1 2] [1 2] [2 1] [1 3] [2 3] [2 3] 4)
+        g4 (multidigraph [1 2] [1 2] [1 2] [2 1] [1 3] [2 3] [2 3] 4)]
+    (check-all-edge-returning-fns g1)
+    (check-all-edge-returning-fns g2)
+    (check-all-edge-returning-fns g3)
+    (check-all-edge-returning-fns g4)))
