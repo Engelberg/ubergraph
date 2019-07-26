@@ -353,3 +353,245 @@
     ;; This will use calculated hashes during =, but should still be
     ;; true.
     (is (= g2 g1))))
+
+
+;; Attribute-related functions:
+;; attr
+;; attrs
+;; add-attr
+;; add-attrs
+;; set-attrs (there is no set-attr function)
+;; remove-attr
+;; remove-attrs
+(deftest attributes-on-nodes-tests
+  (testing "Access node attrs with existing node"
+    (let [g1 (graph [1 {:foo 17}] [2 {:bar 28}])
+          g2 (add-attr g1 1 :foo 18)
+          g3 (add-attr g1 1 :baz 29)
+          g4 (add-attrs g1 1 {:baz 29 :guh 30})
+          g5 (set-attrs g1 1 {:baz 29 :guh 30})
+          g6 (remove-attr g1 1 :foo)
+          g7 (remove-attr g1 1 :baz)
+          g8 (remove-attrs g1 1 [:foo :bar])
+          g9 (remove-attrs g1 1 [:guh :bar])]
+      (is (= 17 (attr g1 1 :foo)))
+      (is (= {:foo 17} (attrs g1 1)))
+      ;; add-attr and add-attrs do 'merge' of attr maps
+      (is (= {:foo 18} (attrs g2 1)))
+      (is (= {:foo 17 :baz 29} (attrs g3 1)))
+      (is (= {:foo 17 :baz 29 :guh 30} (attrs g4 1)))
+      ;; whereas set-attr replaces entire attr map
+      (is (= {:baz 29 :guh 30} (attrs g5 1)))
+      (is (= {} (attrs g6 1)))
+      ;; Trying to remove non-existent attr keys leaves attrs
+      ;; unchanged
+      (is (= {:foo 17} (attrs g7 1)))
+      (is (= {} (attrs g8 1)))
+      (is (= {:foo 17} (attrs g9 1)))))
+  (testing "Access node attrs with non-existent node"
+    (let [g1 (graph [1 {:foo 17}] [2 {:bar 28}])]
+      (is (thrown-with-msg? IllegalArgumentException
+                            #"Invalid node or edge description"
+                            (attr g1 3 :foo)))
+      (is (thrown-with-msg? IllegalArgumentException
+                            #"Invalid node or edge description"
+                            (attrs g1 3)))
+      (is (thrown-with-msg? IllegalArgumentException
+                            #"Invalid node or edge description"
+                            (add-attr g1 3 :foo 18)))
+      (is (thrown-with-msg? IllegalArgumentException
+                            #"Invalid node or edge description"
+                            (add-attrs g1 3 {:foo 18})))
+      (is (thrown-with-msg? IllegalArgumentException
+                            #"Invalid node or edge description"
+                            (set-attrs g1 3 {:foo 18})))
+      (is (thrown-with-msg? IllegalArgumentException
+                            #"Invalid node or edge description"
+                            (remove-attr g1 3 :foo)))
+      (is (thrown-with-msg? IllegalArgumentException
+                            #"Invalid node or edge description"
+                            (remove-attrs g1 3 [:foo]))))))
+
+
+(defn test-attrs-existing-edge-separate-args [n1 n2 undirected-graph?
+                                              reverse-for-op? reverse-for-read?]
+  (let [g1 (if undirected-graph?
+             (graph [n1 n2 {:foo 17}])
+             (digraph [n1 n2 {:foo 17}]))
+        [op-n1 op-n2] (if reverse-for-op?
+                        [n2 n1]
+                        [n1 n2])
+        [read-n1 read-n2] (if reverse-for-op?
+                            [n2 n1]
+                            [n1 n2])
+        g2 (add-attr g1 op-n1 op-n2 :foo 18)
+        g3 (add-attr g1 op-n1 op-n2 :baz 29)
+        g4 (add-attrs g1 op-n1 op-n2 {:baz 29 :guh 30})
+        g5 (set-attrs g1 op-n1 op-n2 {:baz 29 :guh 30})
+        g6 (remove-attr g1 op-n1 op-n2 :foo)
+        g7 (remove-attr g1 op-n1 op-n2 :baz)
+        g8 (remove-attrs g1 op-n1 op-n2 [:foo :bar])
+        g9 (remove-attrs g1 op-n1 op-n2 [:guh :bar])]
+    (is (= 17 (attr g1 read-n1 read-n2 :foo)))
+    (is (= {:foo 17} (attrs g1 read-n1 read-n2)))
+    ;; add-attr and add-attrs do 'merge' of attr maps
+    (is (= {:foo 18} (attrs g2 read-n1 read-n2)))
+    (is (= {:foo 17 :baz 29} (attrs g3 read-n1 read-n2)))
+    (is (= {:foo 17 :baz 29 :guh 30} (attrs g4 read-n1 read-n2)))
+    ;; whereas set-attr replaces entire attr map
+    (is (= {:baz 29 :guh 30} (attrs g5 read-n1 read-n2)))
+    (is (= {} (attrs g6 read-n1 read-n2)))
+    ;; Trying to remove non-existent attr keys leaves attrs
+    ;; unchanged
+    (is (= {:foo 17} (attrs g7 read-n1 read-n2)))
+    (is (= {} (attrs g8 read-n1 read-n2)))
+    (is (= {:foo 17} (attrs g9 read-n1 read-n2)))))
+
+
+(defn test-attrs-nonexisting-edge-separate-args [undirected-graph?]
+  (let [g1 (if undirected-graph?
+             (graph [1 2 {:foo 17}])
+             (digraph [1 2 {:foo 17}]))]
+    (doseq [[op-n1 op-n2] (if undirected-graph?
+                            [[1 3]]
+                            ;; For a directed graph, edge [2 1] should
+                            ;; not exist, because we only added the
+                            ;; edge with direction [1 2] above.
+                            [[1 3] [2 1]])]
+      (is (thrown-with-msg? IllegalArgumentException
+                            #"Invalid node or edge description"
+                            (attr g1 op-n1 op-n2 :foo)))
+      (is (thrown-with-msg? IllegalArgumentException
+                            #"Invalid node or edge description"
+                            (attrs g1 op-n1 op-n2)))
+      (is (thrown-with-msg? IllegalArgumentException
+                            #"Invalid node or edge description"
+                            (add-attr g1 op-n1 op-n2 :foo 18)))
+      (is (thrown-with-msg? IllegalArgumentException
+                            #"Invalid node or edge description"
+                            (add-attrs g1 op-n1 op-n2 {:baz 29 :guh 30})))
+      (is (thrown-with-msg? IllegalArgumentException
+                            #"Invalid node or edge description"
+                            (set-attrs g1 op-n1 op-n2 {:baz 29 :guh 30})))
+      (is (thrown-with-msg? IllegalArgumentException
+                            #"Invalid node or edge description"
+                            (remove-attr g1 op-n1 op-n2 :foo)))
+      (is (thrown-with-msg? IllegalArgumentException
+                            #"Invalid node or edge description"
+                            (remove-attrs g1 op-n1 op-n2 [:foo :bar]))))))
+
+
+(defn test-attrs-existing-edge-object [n1 n2 undirected-graph?
+                                       reverse-for-op? reverse-for-read?]
+  (let [g1 (if undirected-graph?
+             (graph [n1 n2 {:foo 17}])
+             (digraph [n1 n2 {:foo 17}]))
+        forward-edge (find-edge g1 n1 n2)
+        backward-edge (if undirected-graph?
+                        (find-edge g1 n2 n1))
+        op-edge (if reverse-for-op? backward-edge forward-edge)
+        read-edge (if reverse-for-op? backward-edge forward-edge)
+        g2 (add-attr g1 op-edge :foo 18)
+        g3 (add-attr g1 op-edge :baz 29)
+        g4 (add-attrs g1 op-edge {:baz 29 :guh 30})
+        g5 (set-attrs g1 op-edge {:baz 29 :guh 30})
+        g6 (remove-attr g1 op-edge :foo)
+        g7 (remove-attr g1 op-edge :baz)
+        g8 (remove-attrs g1 op-edge [:foo :bar])
+        g9 (remove-attrs g1 op-edge [:guh :bar])]
+
+    (is (= false (mirror-edge? forward-edge)))
+    (when undirected-graph?
+      (is (= true (mirror-edge? backward-edge))))
+
+    (is (= 17 (attr g1 read-edge :foo)))
+    (is (= {:foo 17} (attrs g1 read-edge)))
+    ;; add-attr and add-attrs do 'merge' of attr maps
+    (is (= {:foo 18} (attrs g2 read-edge)))
+    (is (= {:foo 17 :baz 29} (attrs g3 read-edge)))
+    (is (= {:foo 17 :baz 29 :guh 30} (attrs g4 read-edge)))
+    ;; whereas set-attr replaces entire attr map
+    (is (= {:baz 29 :guh 30} (attrs g5 read-edge)))
+    (is (= {} (attrs g6 read-edge)))
+    ;; Trying to remove non-existent attr keys leaves attrs
+    ;; unchanged
+    (is (= {:foo 17} (attrs g7 read-edge)))
+    (is (= {} (attrs g8 read-edge)))
+    (is (= {:foo 17} (attrs g9 read-edge)))))
+
+
+(defn test-attrs-nonexisting-edge-object [undirected-graph?]
+  (let [g1 (if undirected-graph?
+             (graph [1 2 {:foo 17}])
+             (digraph [1 2 {:foo 17}]))
+        g2 (if undirected-graph?
+             (graph [1 2 {:foo 17}])
+             (digraph [1 2 {:foo 17}]))
+        op-edge (find-edge g2 1 2)]
+    (is (thrown-with-msg? IllegalArgumentException
+                          #"edge does not exist in graph g"
+                          (attr g1 op-edge :foo)))
+    (is (thrown-with-msg? IllegalArgumentException
+                          #"edge does not exist in graph g"
+                          (attrs g1 op-edge)))
+    (is (thrown-with-msg? IllegalArgumentException
+                          #"edge does not exist in graph g"
+                          (add-attr g1 op-edge :foo 18)))
+    (is (thrown-with-msg? IllegalArgumentException
+                          #"edge does not exist in graph g"
+                          (add-attrs g1 op-edge {:baz 29 :guh 30})))
+    (is (thrown-with-msg? IllegalArgumentException
+                          #"edge does not exist in graph g"
+                          (set-attrs g1 op-edge {:baz 29 :guh 30})))
+    (is (thrown-with-msg? IllegalArgumentException
+                          #"edge does not exist in graph g"
+                          (remove-attr g1 op-edge :foo)))
+    (is (thrown-with-msg? IllegalArgumentException
+                          #"edge does not exist in graph g"
+                          (remove-attrs g1 op-edge [:foo :bar])))))
+
+
+(deftest attributes-on-edges-tests
+  (testing "undirected edge attrs, edges exist, specified as src dest using separate args"
+    (let [undirected-graph? true]
+      (doseq [reverse-for-op? [false true]
+              reverse-for-read? [false true]]
+        (test-attrs-existing-edge-separate-args 1 2 undirected-graph?
+                                                reverse-for-op?
+                                                reverse-for-read?))))
+  (testing "directed edge attrs, edges exist, specified as src dest using separate args"
+    (let [undirected-graph? false
+          reverse-for-op? false
+          reverse-for-read? false]
+      (test-attrs-existing-edge-separate-args 1 2 undirected-graph?
+                                              reverse-for-op?
+                                              reverse-for-read?)))
+  (testing "edge attrs, edges do not exist, specified as src dest using separate args"
+    (doseq [undirected-graph? [false true]]
+      (test-attrs-nonexisting-edge-separate-args undirected-graph?)))
+
+  ;; TBD: Note that the behavior with non-existent edges is
+  ;; _different_ (at least as of ubergraph version 0.6.1) if you
+  ;; specify it via a vector of [src dest], vs. making the attribute
+  ;; function call using separate args to specify src and dest.
+  ;; Consider harmonizing these behaviors in a future version of
+  ;; ubergraph, e.g. perhaps by making the [src dest] calls also throw
+  ;; an IllegalArgumentException.
+
+  (testing "undirected edge attrs, edges exist, specified as edge object"
+    (let [undirected-graph? true]
+      (doseq [reverse-for-op? [false true]
+              reverse-for-read? [false true]]
+        (test-attrs-existing-edge-object 1 2 undirected-graph?
+                                         reverse-for-op?
+                                         reverse-for-read?))))
+  (testing "directed edge attrs, edges exist, specified as edge object"
+    (let [undirected-graph? false
+          reverse-for-op? false
+          reverse-for-read? false]
+      (test-attrs-existing-edge-object 1 2 undirected-graph?
+                                       reverse-for-op?
+                                       reverse-for-read?)))
+  (testing "edge attrs, edges do not exist, specified as edge object"
+    (doseq [undirected-graph? [false true]]
+      (test-attrs-nonexisting-edge-object undirected-graph?))))
