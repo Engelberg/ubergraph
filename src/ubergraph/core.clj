@@ -344,7 +344,8 @@ will `upgrade' the directed edge to undirected and merge attributes."
 
 (defn- find-edges-impl
   ([g src dest]
-    (get-in g [:node-map src :out-edges dest]))
+   (map #(with-meta % g)
+        (get-in g [:node-map src :out-edges dest])))
   ([g {src :src dest :dest :as attributes}]
     (let [edges
           (cond
@@ -353,11 +354,12 @@ will `upgrade' the directed edge to undirected and merge attributes."
             dest (in-edges g dest)
             :else (edges g))
           attributes (dissoc attributes :src :dest)]
-      (if (pos? (count attributes))
-        (for [edge edges
-              :when (submap? attributes (get-in g [:attrs (:id edge)]))]
-          edge)
-        edges))))
+      (map #(with-meta % g)
+           (if (pos? (count attributes))
+             (for [edge edges
+                   :when (submap? attributes (get-in g [:attrs (:id edge)]))]
+               edge)
+             edges)))))
 
 (defn- find-edge-impl [& args]
   (first (apply find-edges-impl args)))
