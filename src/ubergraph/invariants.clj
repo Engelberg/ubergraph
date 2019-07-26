@@ -2,22 +2,22 @@
   (:require [ubergraph.core :as uber]))
 
 
-;; TBD: Consider making custom implementations of a few functions from
-;; ubergraph.core namespace that are called in this namespace, to have
-;; an independently written implementation.
+;; This code mostly does its own "independent" checking of the
+;; internal data structures within an ubergraph, but it does call
+;; several functions from the ubergraph.core namespace to help it do
+;; so.  The current ones are listed below, and they either have a
+;; pretty trivial implementation, or I have checked the less trivial
+;; ones carefully.
 
-;; uber/nodes
-;; uber/has-node?
-;; uber/edges
-
-;; These seem simple and straightforward enough to just reuse:
-
-;; uber/edge?
-;; uber/mirror-edge?
-;; uber/undirected-edge?
-;; uber/src
-;; uber/dest
-;; uber/ubergraph?
+;; nodes
+;; has-node?
+;; edges
+;; edge?
+;; mirror-edge?
+;; undirected-edge?
+;; src
+;; dest
+;; ubergraph?
 
 
 (defn nodes-also-edges [g]
@@ -47,7 +47,7 @@
   (remove map? (vals (:attrs g))))
 
 
-(defn node-map-val-not-nodinfo-or-wrong-keys [g]
+(defn node-map-val-wrong-type-or-keys [g]
   (remove (fn [x]
             (and (instance? ubergraph.core.NodeInfo x)
                  (= #{:in-edges :out-edges :in-degree :out-degree}
@@ -67,7 +67,7 @@
 ;; keys :in-edges and :out-edges.  Every such map has keys that are
 ;; all node values in the graph.
 
-(defn node-info-with-key-not-a-node [g]
+(defn node-info-with-non-node-key [g]
   (let [all-keys-are-nodes? (fn [m]
                               (every? #(uber/has-node? g %) (keys m)))]
     (remove (fn [i]
@@ -82,7 +82,7 @@
 ;; faster implementations of the functions successors and
 ;; predecessors.
 
-(defn node-info-with-val-empty-notset-or-contains-non-edge [g]
+(defn node-info-with-wrong-val [g]
   (let [good-edge-set? (fn [x]
                          (and (set? x)
                               (not (zero? (count x)))
@@ -98,7 +98,7 @@
                  :when (> v 1)]
              [k v])))
 
-(comment 
+(comment
 (= {} (duplicates [1 2 3 4]))
 (= {1 2, 3 3} (duplicates [1 2 3 4 1 3 5 3]))
 )
@@ -111,10 +111,11 @@
        duplicates))
 
 
-;; Good undirected edges come in pairs, one with :mirror?  true, the
+;; Correct undirected edges come in pairs, one with :mirror? true, the
 ;; other false, both with the same id, and with src and dest swapped.
-;; Return any non-good ones found.
-(defn undirected-edges-not-paired-correctly [g]
+;; Return any undirected edges found that do not meet these
+;; conditions.
+(defn undirected-edges-paired-incorrectly [g]
   (let [uedges-by-id (->> (uber/edges g)
                           (filter uber/undirected-edge?)
                           (group-by :id))]
@@ -200,30 +201,30 @@
          :description "At least one value in :attrs map is not a map"
          :data (first (attrs-val-not-map g))}
         
-        (seq (node-map-val-not-nodinfo-or-wrong-keys g))
+        (seq (node-map-val-wrong-type-or-keys g))
         {:error true
          :description "At least one value in :node-map is not a NodeInfo record, or has the wrong keys"
-         :data (first (node-map-val-not-nodinfo-or-wrong-keys g))}
+         :data (first (node-map-val-wrong-type-or-keys g))}
         
         (seq (node-info-wrong-degree g))
         {:error true
          :description "At least one value in :node-map has wrong value for :in-degree or :out-degree"
          :data (first (node-info-wrong-degree g))}
 
-        (seq (node-info-with-key-not-a-node g))
+        (seq (node-info-with-non-node-key g))
         {:error true
          :description "At least one value in :node-map has a key that is not a node"
-         :data (first (node-info-with-key-not-a-node g))}
+         :data (first (node-info-with-non-node-key g))}
 
-        (seq (node-info-with-val-empty-notset-or-contains-non-edge g))
+        (seq (node-info-with-wrong-val g))
         {:error true
          :description "At least one value in :node-map has a value that is not a non-empty set of edges"
-         :data (first (node-info-with-val-empty-notset-or-contains-non-edge g))}
+         :data (first (node-info-with-wrong-val g))}
 
-        (seq (undirected-edges-not-paired-correctly g))
+        (seq (undirected-edges-paired-incorrectly g))
         {:error true
          :description "At least one undirected edge not paired correctly"
-         :data (first (undirected-edges-not-paired-correctly g))}
+         :data (first (undirected-edges-paired-incorrectly g))}
 
         ;; When ignoring edges with :mirror? equal to true, all edge
         ;; ids should be unique.
@@ -249,9 +250,9 @@
         ;; undirected.
 
         ;; Node values of false or nil lead to bugs in many functions
-        ;; of Loom and Ubergraph.  Multiple such functions use
-        ;; nil-punning, or create a set of nodes like 'some-set', and
-        ;; then do a membership check via evaluating an expression
+        ;; of Loom and Ubergraph.  Multiple functions use nil-punning,
+        ;; or create a set of nodes like 'some-set', and then do a
+        ;; membership check via evaluating an expression
         ;; like (some-set possible-node), and assume the result is
         ;; logical true if the node is in the set.
         (seq (nodes-logical-false g))
