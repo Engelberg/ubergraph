@@ -851,7 +851,7 @@ We're just checking the attributes here"
 ;; Dorothy has a bug - it doesn't escape backslashes, so we do it here.
 ;; Also replace several other special characters that cause problems
 ;; for Graphviz dot when they appear as part of labels.
-(def dorothy-label-char-replacement-map
+(def ^:private dorothy-label-char-replacement-map
   {(char 0) "\\\\u0000"
    (char 65534) "\\\\ufffe"
    (char 65535) "\\\\uffff"
