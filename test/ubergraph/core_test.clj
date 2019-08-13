@@ -1,9 +1,13 @@
 (ns ubergraph.core-test
   (:require [clojure.test :refer :all]
-            [ubergraph.core :refer :all]))
+            [ubergraph.core :refer :all]
+            [ubergraph.invariants :refer :all]))
 
 (defn vec-edges [g]
   (for [e (edges g) :when (not (mirror-edge? e))] [(src e) (dest e)]))
+
+(defn satisfies-invariants [g]
+  (is (= false (:error (check-invariants g)))))
 
 (deftest simple-graph-test
   (let [g1 (graph [1 2] [1 3] [2 3] 4)
@@ -11,6 +15,12 @@
         g3 (graph g1)
         g4 (graph g3 (digraph [5 6]) [7 8] 9)
         g5 (graph)]
+    (testing "Check internal invariants of data structures"
+      (satisfies-invariants g1)
+      (satisfies-invariants g2)
+      (satisfies-invariants g3)
+      (satisfies-invariants g4)
+      (satisfies-invariants g5))
     (testing "Construction, nodes, edges"
       (are [expected got] (= expected got)
         #{1 2 3 4} (set (nodes g1))
@@ -54,6 +64,13 @@
         g4 (digraph g3 (graph [5 6]) [7 8] 9)
         g5 (digraph)
         g6 (transpose g1)]
+    (testing "Check internal invariants of data structures"
+      (satisfies-invariants g1)
+      (satisfies-invariants g2)
+      (satisfies-invariants g3)
+      (satisfies-invariants g4)
+      (satisfies-invariants g5)
+      (satisfies-invariants g6))
     (testing "Construction, nodes, edges"
       (are [expected got] (= expected got)
         #{1 2 3 4} (set (nodes g1))
@@ -105,6 +122,12 @@
         g3 (graph g1)
         g4 (graph g3 (digraph [5 6 88]) [7 8] 9)
         g5 (graph)]
+    (testing "Check internal invariants of data structures"
+      (satisfies-invariants g1)
+      (satisfies-invariants g2)
+      (satisfies-invariants g3)
+      (satisfies-invariants g4)
+      (satisfies-invariants g5))
     (testing "Construction, nodes, edges"
       (are [expected got] (= expected got)
         #{1 2 3 4} (set (nodes g1))
@@ -155,6 +178,13 @@
         g4 (digraph g3 (graph [5 6 88]) [7 8] 9)
         g5 (digraph)
         g6 (transpose g1)]
+    (testing "Check internal invariants of data structures"
+      (satisfies-invariants g1)
+      (satisfies-invariants g2)
+      (satisfies-invariants g3)
+      (satisfies-invariants g4)
+      (satisfies-invariants g5)
+      (satisfies-invariants g6))
     (testing "Construction, nodes, edges"
       (are [expected got] (= expected got)
         #{1 2 3 4} (set (nodes g1))
@@ -213,6 +243,11 @@
         g2 (digraph [1 1])
         g3 (multigraph [1 1 {:color :red}] [1 1 {:color :blue}])
         g4 (multidigraph [1 1 {:color :red}] [1 1 {:color :blue}])]
+    (testing "Check internal invariants of data structures"
+      (satisfies-invariants g1)
+      (satisfies-invariants g2)
+      (satisfies-invariants g3)
+      (satisfies-invariants g4))
     (testing "Undirected graph"
       (are [expected got] (= expected got)
         #{1} (set (successors g1 1))
@@ -247,6 +282,15 @@
         g3 (graph [1 2])
         ug4 (ubergraph false false [1 2])
         g4 (digraph [1 2])]
+    (testing "Check internal invariants of data structures"
+      (satisfies-invariants ug1)
+      (satisfies-invariants g1)
+      (satisfies-invariants ug2)
+      (satisfies-invariants g2)
+      (satisfies-invariants ug3)
+      (satisfies-invariants g3)
+      (satisfies-invariants ug4)
+      (satisfies-invariants g4))
     (are [expected got] (= expected got)
          g1 ug1
          g2 ug2
@@ -289,6 +333,14 @@
         g5 (add-edges g4 [:a :y {:type "global"}])
         g6 (add-edges g5 [:x :y {:type "global" :position 5}])]
 
+    (testing "Check internal invariants of data structures"
+      (satisfies-invariants g0)
+      (satisfies-invariants g1)
+      (satisfies-invariants g2)
+      (satisfies-invariants g3)
+      (satisfies-invariants g4)
+      (satisfies-invariants g5)
+      (satisfies-invariants g6))
     (testing "finds edges by attribute"
       (is (= (make-edges :a :b)
              (do-find-edges g1 {:src :a :dest :b :type "local"})))
@@ -317,6 +369,10 @@
                          [1 2 {:label "edge12"}])
         g2 (remove-nodes g1 2)
         g3 (add-nodes g2 2)]
+    (testing "Check internal invariants of data structures"
+      (satisfies-invariants g1)
+      (satisfies-invariants g2)
+      (satisfies-invariants g3))
     (is (= (attrs g1 2) {:label "n2"}))
     ;; There should be no attributes for a node that was removed, then
     ;; added back again without any attributes.
@@ -331,6 +387,10 @@
                          [1 2 {:label "edge12"}])
         g2 (remove-edges g1 [1 2])
         g3 (add-edges g2 [1 2])]
+    (testing "Check internal invariants of data structures"
+      (satisfies-invariants g1)
+      (satisfies-invariants g2)
+      (satisfies-invariants g3))
     (is (= (attrs g1 [1 2]) {:label "edge12"}))
     (is (= (attrs g2 [1 2]) {}))
     ;; There should be no attributes for an edge that was removed,
@@ -352,4 +412,7 @@
     (is (integer? (hash g2)))
     ;; This will use calculated hashes during =, but should still be
     ;; true.
-    (is (= g2 g1))))
+    (is (= g2 g1))
+    (testing "Check internal invariants of data structures"
+      (satisfies-invariants g1)
+      (satisfies-invariants g2))))
