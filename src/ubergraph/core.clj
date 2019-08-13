@@ -181,11 +181,12 @@
              (set-attrs g (get-edge g n1 n2) attribute-map))
 
   (remove-attrs [g node-or-edge attributes]
-                (let [m (la/attrs g node-or-edge)]
-                  (assoc-in g [:attrs (resolve-node-or-edge g node-or-edge)]
+                (let [resolved (resolve-node-or-edge g node-or-edge),
+                      m (get-in g [:attrs resolved] {})]
+                  (assoc-in g [:attrs resolved]
                             (apply dissoc m attributes))))
   (remove-attrs [g n1 n2 attributes]
-                (remove-attrs g (get-edge n1 n2) attributes))
+                (remove-attrs g (get-edge g n1 n2) attributes))
 
   up/UndirectedGraph
   (other-direction [g edge]
