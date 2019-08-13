@@ -332,10 +332,10 @@ will `upgrade' the directed edge to undirected and merge attributes."
 (defn- remove-node
   [g node]
   (-> g
-    (remove-edges* (out-edges g node))
-    (remove-edges* (in-edges g node))
-    (update-in [:node-map] dissoc node)
-    (update-in [:attrs] dissoc node)))
+      (remove-edges* (out-edges g node))
+      (remove-edges* (in-edges g node))
+      (update :node-map dissoc node)
+      (update :attrs dissoc node)))
 
 (def ^:private fconj (fnil conj #{}))
 (def ^:private finc (fnil inc 0))
@@ -374,11 +374,11 @@ will `upgrade' the directed edge to undirected and merge attributes."
         node-map-src (get node-map src)
         node-map-dest (get node-map dest)
         new-node-map-src (-> node-map-src
-                           (update-in [:out-edges dest] fconj edge)
-                           (update-in [:out-degree] finc))
+                             (update-in [:out-edges dest] fconj edge)
+                             (update :out-degree finc))
         new-node-map-dest (-> (if (= src dest) new-node-map-src node-map-dest)
-                            (update-in [:in-edges src] fconj edge)
-                            (update-in [:in-degree] finc))
+                              (update-in [:in-edges src] fconj edge)
+                              (update :in-degree finc))
         new-node-map (assoc node-map src new-node-map-src dest new-node-map-dest)]
     (Ubergraph. new-node-map (:allow-parallel? g) (:undirected? g) new-attrs (atom -1))))
 
@@ -395,15 +395,15 @@ will `upgrade' the directed edge to undirected and merge attributes."
         node-map-src (get node-map src)
         node-map-dest (get node-map dest)
         new-node-map-src (-> node-map-src
-                           (update-in [:out-edges dest] fconj forward-edge)
-                           (update-in [:in-edges dest] fconj backward-edge)
-                           (update-in [:in-degree] finc)
-                           (update-in [:out-degree] finc))
+                             (update-in [:out-edges dest] fconj forward-edge)
+                             (update-in [:in-edges dest] fconj backward-edge)
+                             (update :in-degree finc)
+                             (update :out-degree finc))
         new-node-map-dest (-> (if (= src dest) new-node-map-src node-map-dest)
-                            (update-in [:out-edges src] fconj backward-edge)
-                            (update-in [:in-edges src] fconj forward-edge)
-                            (update-in [:in-degree] finc)
-                            (update-in [:out-degree] finc))
+                              (update-in [:out-edges src] fconj backward-edge)
+                              (update-in [:in-edges src] fconj forward-edge)
+                              (update :in-degree finc)
+                              (update :out-degree finc))
         new-node-map (assoc node-map src new-node-map-src dest new-node-map-dest)]
     (Ubergraph. new-node-map (:allow-parallel? g) (:undirected? g) new-attrs (atom -1))))
 
@@ -494,29 +494,29 @@ it is an edge."
   (let [{:keys [src dest id] :as edge} (edge-description->edge g edge)]
     (if (get-in g [:node-map src :out-edges dest edge])
       (if-let
-        [reverse-edge (other-direction g edge)]
+          [reverse-edge (other-direction g edge)]
         (-> g
-          (update-in [:attrs] dissoc id)
-          (update-in [:node-map src :out-edges]
-                     remove-edge-also-node-if-last-edge dest edge)
-          (update-in [:node-map src :in-edges]
-                     remove-edge-also-node-if-last-edge dest reverse-edge)
-          (update-in [:node-map src :in-degree] dec)
-          (update-in [:node-map src :out-degree] dec)
-          (update-in [:node-map dest :out-edges]
-                     remove-edge-also-node-if-last-edge src reverse-edge)
-          (update-in [:node-map dest :in-edges]
-                     remove-edge-also-node-if-last-edge src edge)
-          (update-in [:node-map dest :in-degree] dec)
-          (update-in [:node-map dest :out-degree] dec))
+            (update :attrs dissoc id)
+            (update-in [:node-map src :out-edges]
+                       remove-edge-also-node-if-last-edge dest edge)
+            (update-in [:node-map src :in-edges]
+                       remove-edge-also-node-if-last-edge dest reverse-edge)
+            (update-in [:node-map src :in-degree] dec)
+            (update-in [:node-map src :out-degree] dec)
+            (update-in [:node-map dest :out-edges]
+                       remove-edge-also-node-if-last-edge src reverse-edge)
+            (update-in [:node-map dest :in-edges]
+                       remove-edge-also-node-if-last-edge src edge)
+            (update-in [:node-map dest :in-degree] dec)
+            (update-in [:node-map dest :out-degree] dec))
         (-> g
-          (update-in [:attrs] dissoc id)
-          (update-in [:node-map src :out-edges]
-                     remove-edge-also-node-if-last-edge dest edge)
-          (update-in [:node-map src :out-degree] dec)
-          (update-in [:node-map dest :in-edges]
-                     remove-edge-also-node-if-last-edge src edge)
-          (update-in [:node-map dest :in-degree] dec)))
+            (update :attrs dissoc id)
+            (update-in [:node-map src :out-edges]
+                       remove-edge-also-node-if-last-edge dest edge)
+            (update-in [:node-map src :out-degree] dec)
+            (update-in [:node-map dest :in-edges]
+                       remove-edge-also-node-if-last-edge src edge)
+            (update-in [:node-map dest :in-degree] dec)))
       g)))
 
 (defn- swap-edge [edge]
