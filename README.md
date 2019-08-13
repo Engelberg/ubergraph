@@ -18,7 +18,7 @@ Ubergraph is a great choice for people who:
 
 Add the following line to your leiningen dependencies:
 
-	[ubergraph "0.6.1"]
+	[ubergraph "0.7.0"]
 
 Require ubergraph in your namespace header:
 
@@ -71,7 +71,6 @@ All ubergraph constructors are multiple arity functions that can take an arbitra
 	+ [src dest]
 	+ [src dest weight]
 	+ [src dest attribute-map]
-	+ An edge object (from a sequence returned by `edges`, `in-edges`, or `out-edges`)
 + Adjacency map (e.g., {1 [2 3], 2 [3]} adds the edges 1->2, 1->3, and 2->3).
 + Weighted adjacency map (e.g., {:a {:b 2, :c 3}} creates an edge of weight 2 between :a and :b, etc.)
 + Attribute adjacency map (e.g., {:a {:b {:weight 2}, :c {:weight 3}}})
@@ -152,7 +151,7 @@ You can extend graphs with more "inits" by using `build-graph`, or you can use `
 (add-nodes-with-attrs* graph1 [[:a {:happy true}] [:b {:sad true}]])
 ```
 
-Adding nodes that already exist will do nothing.  Graphs do not permit "parallel edges", so adding edges that already exist will cause the new attribute map to be merged with the existing one.  However, if you really want to, you can add a directed edge to an undirected graph with `add-directed-edges` or `add-directed-edges*`:
+Adding nodes that already exist will do nothing.  Basic graphs that are not multigraphs do not permit "parallel edges", so adding edges that already exist will cause the new attribute map to be merged with the existing one.  However, if you really want to, you can add a directed edge to an undirected graph with `add-directed-edges` or `add-directed-edges*`:
 
 ```clojure
 => (uber/pprint (uber/add-directed-edges graph1 [:a :d]))
@@ -172,7 +171,7 @@ Graph
 Ubergraph supports all of Loom's protocols, so you can do all the things you'd expect to be able to do to graphs:
 nodes, edges, has-node?, has-edge?, successors, out-degree, out-edges, predecessors, in-degree, in-edges, transpose, weight, add-nodes, add-nodes\*, add-edges, add-edges\*, remove-nodes, remove-nodes\*, remove-edges, remove-edges\*, and remove-all.
 
-Ubergraph also supports the ability to lookup attributes on any node or edge in the graph with `attr` and `attrs`, add attributes with `add-attr` and `add-attrs`, remove attributes  with `remove-attr` and `remove-attrs`, and set the attribute map (overwriting the existing attribute map) with `set-attrs`.
+Ubergraph also supports the ability to lookup attributes on any node or edge in the graph with `attr` and `attrs`, add attributes with `add-attr` and `add-attrs`, remove attributes  with `remove-attr` and `remove-attrs`, and set the attribute map (overwriting the existing attribute map) with `set-attrs`. It is not a good idea to add/set/remove attributes for a node or edge that doesn't exist in the graph. Create the node or edge *first* and then manipulate its attributes, or build your graph with functions that allow you to set up the attributes at the same time you add nodes and edges.
 
 #### Edges
 
@@ -193,7 +192,7 @@ One way that Ubergraph improves upon Loom is that graph edges have a richer impl
 
 The main thing to note here is that internally, all edges have a `:src` field, a `:dest` field, and a uuid, which you can think of as a pointer to the map of attributes for that edge.  The other thing to note is that undirected edges are stored internally as a pair of edge objects, one for each direction.  Both edges of the pair share the same id (and therefore, the same attribute map) and one of the edges is marked as a "mirror" edge.  This is critical because in some algorithms, we want to traverse over all edges in both directions, but in other algorithms we only want to traverse over unique edges.  Loom provides no mechanism for this, but Ubergraph makes this easy with the protocol function `mirror-edge?`, which returns true for the mirrored edge in an undirected pair of edges, and false for directed edges and the non-mirrored undirected edges.  So `(edges g)` gives you all the edges in a graph, and `(remove mirror-edge? (edges g))` would give you a sequence of unique edges, without listing both directions of the same undirected edge.
 
-When writing algorithms over edges, it is strongly recommended that you access the edge endpoints through the edge abstraction, using the protocol functions `src` and `dest` (although edges support [src dest] and [src dest weight] destructuring for backwards compatibility with Loom).  Edges also support the protocol functions `edge?`, `directed-edge?`, `undirected-edge?`, and `other-direction` (which returns the other edge in the pair for undirected edges, or nil if it is a directed edge).
+When writing algorithms over edges, it is strongly recommended that you access the edge endpoints through the edge abstraction, using the protocol functions `src` and `dest` (although edges returned by Loom protocols support [src dest] and [src dest weight] destructuring for backwards compatibility with Loom).  Edges also support the protocol functions `edge?`, `directed-edge?`, `undirected-edge?`, and `other-direction` (which returns the other edge in the pair for undirected edges, or nil if it is a directed edge).
 
 ### Digraphs
 
@@ -209,16 +208,17 @@ But there are also many functions which require some description of an edge as a
 
 #### Edge Descriptions
 
-Ubergraph introduces the notion of an "edge description".  An edge description is one of the following:
+In addition to edge objects (Edge or UndirectedEdge), Ubergraph introduces the notion of an "edge description".  An edge description is one of the following:
 
 + [src dest]
 + [src dest weight]
 + [src dest attribute-map]
-+ an actual edge object
 
-It's up to you to pick an edge description that uniquely identifies your edge.  If your graph contains multiple edges that match a given edge description, ubergraph will arbitrarily pick one such edge for you.  For example, if your multigraph uses different colors to represent several edges between a given pair of nodes, then the edge description `[1 4 {:color :red}]` might be unambiguous for your application.  Using the actual edge object is, of course, the easiest way to ensure you are unqiuely identifying the edge.
+Every Loom protocol that takes a simple [src dest] input to describe an edge, in Ubergraph can either take an edge object or one of these edge descriptions.
 
-Every Loom protocol that takes a simple [src dest] input to descript an edge, in Ubergraph can take one of these richer notions of an edge description.  For example,
+If you use an edge description, it's up to you to pick an edge description that uniquely identifies your edge.  If your graph contains multiple edges that match a given edge description, ubergraph will arbitrarily pick one such edge for you.  For example, if your multigraph uses different colors to represent several edges between a given pair of nodes, then the edge description `[1 4 {:color :red}]` might be unambiguous for your application.  Using the actual edge object is, of course, the easiest way to ensure you are unqiuely identifying the edge.
+
+For example,
 
 ```clojure
 (weight g [1 4 {:color :red}])  ; what is the weight of the red edge between 1 and 4?
@@ -262,14 +262,46 @@ The general-purpose `ubergraph` constructor takes two booleans (allow-parallel-e
 
 You can test to find out what kind of ubergraph you have with the predicates `allow-parallel-edges?` and `undirected-graph?`.  (Keep in mind that `undirected-graph?` just tests whether new edges are added as undirected by default.  You can override this behavior for specific edges.)
 
-
 ### Notes on Ubergraph's data model
+
+#### Nodes
 
 Nodes are used internally as keys in Clojure maps within Ubergraph's implementation, so you should pick values to represent nodes that work as keys in hash maps.  Any Clojure immutable values where Clojure's `hash` function is consistent with `=` will work, which includes most immutable values, i.e. numbers, strings, keywords, and Clojure vectors, maps, sets, and sequences that contain only immutable values.  See [Clojure's Equality guide](https://clojure.org/guides/equality) for a handful of exceptions.  Both Loom and Ubergraph will give incorrect return results for some functions if you use `nil` or `false` as a node value, so it is strongly recommended that you avoid using them as nodes.
 
-The attributes of a node are stored inside the *graph* value.  They are not somehow "attached" to nodes independently of a graph.  Thus node attributes are independent in different graphs, even if those graphs use the same values to represent nodes.
+#### Attributes
 
-Edges are effectively represented as a pair of nodes plus an internally generated UUID so that every newly created edge is unique. There are several ways to create new edges, and most commonly you will create edges by specifiying a pair of nodes plus optional attributes. However, the `build-graph` function allows you to add Edge objects from other graphs; when you do so, it will preserve the src and dest, whether the Edge is directed or undirected, and the attributes that were associated with the Edge at the time you retrieved it from its graph -- but a fresh UUID is always assigned to avoid any possible conflict between edges.
+The attributes of a node are stored inside the *graph* value.  They are not somehow "attached" to nodes independently of a graph.  Thus node attributes are independent in different graphs, even if those graphs use the same values to represent nodes.  The same goes for the attributes of edges; they are stored inside the *graph* value.
+
+Although node and edge attributes are stored inside of the graph value, sometimes it is useful to have a "view" of the node or edge that includes the attribute map. Ubergraph provides convenience functions to do just that: `node-with-attrs` (which takes a graph and node and returns `[node attribute-map]`) and `edge-with-attrs` (which takes a graph and edge object or edge description, and returns `[src dest attribute-map]`).
+
+Examples:
+
+```clojure
+(node-with-attrs g :a) => [:a {:color :red}]
+(edge-with-attrs g #ubergraph.core.Edge{:id #uuid "5341be54-e501-4bcb-b22d-5fbcb5c828df",
+                      :src :a, :dest :c}) => [:a :c {:weight 10}]
+```
+
+There are two common uses for these convenience functions:
+
+1. These functions are handy for destructuring nodes/edges with attributes, for example:
+
+```clojure
+(for [[src dest attrs] (map (partial edge-with-attrs g) (edges g))]
+  ...)
+```
+
+2. These functions are useful for importing the complete information about a node or edge from one graph to another, for example:
+
+```clojure
+(add-edges* g1 (map (partial edge-with-attrs g2) (edges g2)))
+```
+
+Note that the output of `node-with-attrs` and `edge-with-attrs` is annotated with ^:node or ^:edge metadata so that it can be safely and unambiguously recognized as a node or edge description if passed to the `build-graph` function.
+
+#### Edges
+
+Edges are represented as a pair of nodes plus an internally generated UUID that serves as the unique identifier of the edge's attribute map.  The use of UUIDs ensures that every newly created edge is unique. There are several functions that allow you to create new edges using an edge description, specifying a pair of nodes plus optional attributes. These functions create fresh edge objects with fresh UUIDs assigned to avoid any possible conflict between edges.
 
 While edge objects returned via `find-edge` (and other functions) are immutable values, don't add ubergraph's edge objects as nodes to the same or other graphs; this is not supported. In particular, this can cause problems with attributes.
 

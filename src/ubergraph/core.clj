@@ -412,8 +412,7 @@ will `upgrade' the directed edge to undirected and merge attributes."
 
 (defn- add-edge
   [g [src dest attributes :as edge]]
-  (if (edge? edge) (throw (ex-info "add-edges takes an edge description, not Edge objects. Use build-graph instead." {:edge edge}))
-      ;; build-graph has logic for adding actual edge objects, so we direct users to that function instead
+  (if (edge? edge) (throw (ex-info "add-edges takes edge descriptions, not Edge objects. Use `edge-with-attrs` to get edge description from an Edge." {:edge edge}))
       (let [attributes (number->map attributes)]
         (cond
           (and (not (:allow-parallel? g)) (get-edge g src dest))
@@ -427,26 +426,28 @@ will `upgrade' the directed edge to undirected and merge attributes."
   
 (defn- force-add-directed-edge
   [g [src dest attributes :as edge]]
-  (let [attributes (if (edge? edge) (attrs (meta edge) edge) (number->map attributes))]
-    (cond
-      (and (not (:allow-parallel? g)) (get-edge g src dest))
-      (if attributes
-        (update-in g [:attrs (:id (get-edge g src dest))]
-                   merge attributes)
-        g)
-      :else (add-directed-edge g src dest attributes))))
+  (if (edge? edge) (throw (ex-info "add-directed-edges takes edge descriptions, not Edge objects. Use `edge-with-attrs` to get edge description from an Edge." {:edge edge}))
+      (let [attributes (number->map attributes)]
+        (cond
+          (and (not (:allow-parallel? g)) (get-edge g src dest))
+          (if attributes
+            (update-in g [:attrs (:id (get-edge g src dest))]
+                       merge attributes)
+            g)
+          :else (add-directed-edge g src dest attributes)))))
 
 (defn- force-add-undirected-edge
   [g [src dest attributes :as edge]]
-  (let [attributes (if (edge? edge) (attrs (meta edge) edge) (number->map attributes))]
-    (cond
-      (and (not (:allow-parallel? g)) (or (get-edge g src dest)
-                                          (get-edge g dest src)))
-      (let [new-attrs (merge (attrs g src dest) (attrs g dest src) attributes)]
-        (-> g
-            (remove-edges [src dest] [dest src])
-            (add-undirected-edge src dest attributes)))
-      :else (add-undirected-edge g src dest attributes))))
+  (if (edge? edge) (throw (ex-info "add-undirected-edges takes edge descriptions, not Edge objects. Use `edge-with-attrs` to get edge description from an Edge." {:edge edge}))
+      (let [attributes (number->map attributes)]
+        (cond
+          (and (not (:allow-parallel? g)) (or (get-edge g src dest)
+                                              (get-edge g dest src)))
+          (let [new-attrs (merge (attrs g src dest) (attrs g dest src) attributes)]
+            (-> g
+                (remove-edges [src dest] [dest src])
+                (add-undirected-edge src dest attributes)))
+          :else (add-undirected-edge g src dest attributes)))))
 
 (defn edge-description->edge
   "Many ubergraph functions can take either an *edge description* (i.e., [src dest]
@@ -561,13 +562,22 @@ it is an edge."
 (defn- nodes-with-attrs [g]
   (for [n (nodes g)] [n (attrs g n)]))
 
+(defn node-with-attrs "Returns [node attribute-map] with ^:node metadata so it can be safely used as an input to build-graph"
+  [g node]
+  ^:node [node (attrs g node)])
+
+(defn edge-with-attrs "Returns [src dest attribute-map] with ^:edge metadata so it can be safely used as an input to build-graph"
+  [g edge]
+  (let [edge (edge-description->edge g edge)]
+    ^:edge [(src edge) (dest edge) (attrs g edge)]))
+
 (defn build-graph
   "Builds graphs using node descriptions of the form node-label or [node-label attribute-map]
-and edge descriptions of the form [src dest], [src dest weight], or [src dest attribute-map].
-Also can build from other ubergraphs, ubergraph edge objects, and from adjacency maps.
+  and edge descriptions of the form [src dest], [src dest weight], or [src dest attribute-map].
+  Also can build from other ubergraphs and from adjacency maps.
 
-Use ^:node and ^:edge metadata to resolve ambiguous inits, or build your graph with the more
-precise add-nodes, add-nodes-with-attrs, and add-edges functions."
+  Use ^:node and ^:edge metadata to resolve ambiguous inits, or build your graph with the more
+  precise add-nodes, add-nodes-with-attrs, and add-edges functions."
   [g & inits]
   (letfn [(build [g init]
             (cond
@@ -585,18 +595,22 @@ precise add-nodes, add-nodes-with-attrs, and add-edges functions."
                     new-g (add-undirected-edges* new-g undirected-edges)]
                 new-g)
 
-              ;; Edge objects
-              (directed-edge? init)
-              (let [new-g (add-nodes g (src init) (dest init)),
-                    new-g (add-directed-edges g [(src init) (dest init)
-                                                 (attrs (meta init) init)])]
-                new-g)
+              ;; Adding Edge objects is deprecated in version 0.7.0
+              ;; Use edge descriptions instead
+              (edge? init)
+              (throw (ex-info "See build-graph docstring for valid inits. Use `edge-with-attrs` to get edge description from an Edge." {:init init}))
 
-              (undirected-edge? init)
-              (let [new-g (add-nodes g (src init) (dest init)),
-                    new-g (add-undirected-edges g [(src init) (dest init)
-                                                   (attrs (meta init) init)])]
-                new-g)
+              ;; (directed-edge? init)
+              ;; (let [new-g (add-nodes g (src init) (dest init)),
+              ;;       new-g (add-directed-edges g [(src init) (dest init)
+              ;;                                    (attrs (meta init) init)])]
+              ;;   new-g)
+
+              ;; (undirected-edge? init)
+              ;; (let [new-g (add-nodes g (src init) (dest init)),
+              ;;       new-g (add-undirected-edges g [(src init) (dest init)
+              ;;                                      (attrs (meta init) init)])]
+              ;;   new-g)
 
               ;; Marked as a node
               (:node (meta init))
@@ -617,8 +631,8 @@ precise add-nodes, add-nodes-with-attrs, and add-edges functions."
                                nbr nbrs]
                            [n nbr]))]
                 (-> g
-                  (add-nodes* (keys init))
-                  (add-edges* es)))
+                    (add-nodes* (keys init))
+                    (add-edges* es)))
 
               ;; node-with-attributes
               (and (vector? init) (= 2 (count init)) (map? (init 1)))
@@ -668,9 +682,9 @@ See build-graph for description of valid inits"
    :undirected? (:undirected? g),
    :nodes (vec (for [node (nodes g)] [node (attrs g node)]))
    :directed-edges (vec (for [edge (edges g) :when (directed-edge? edge)]
-                             [(src edge) (dest edge) (attrs g edge)]))
+                          [(src edge) (dest edge) (attrs g edge)]))
    :undirected-edges (vec (for [edge (edges g) :when (and (undirected-edge? edge) (not (mirror-edge? edge)))]
-                               [(src edge) (dest edge) (attrs g edge)]))})
+                            [(src edge) (dest edge) (attrs g edge)]))})
 
 (defn edn->ubergraph [{:keys [allow-parallel? undirected? nodes directed-edges undirected-edges]}]
   (-> (ubergraph allow-parallel? undirected?)

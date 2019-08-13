@@ -1,5 +1,16 @@
 # Ubergraph Change Log
 
+## 0.7.0
+
+### Bugfixes
+
+* Fixed bug with one of the arities of remove-attrs
+
+### Enhancements
+
+* Added `node-with-attrs` and `edge-with-attrs` to provide views of nodes/edges with full attribute map, for destructuring, or moving info from one graph to another.
+* Disallow Edge objects to all ubergraph constructors, and throw appropriate errors if tried. This forces users to use the proper protocols to access attribute information, or to use the new `node-with-attrs` or `edge-with-attrs` functions.
+
 ## 0.6.1
 
 ### Bugfixes
