@@ -18,7 +18,7 @@ Ubergraph is a great choice for people who:
 
 Add the following line to your leiningen dependencies:
 
-	[ubergraph "0.7.1"]
+	[ubergraph "0.7.2"]
 
 Require ubergraph in your namespace header:
 
@@ -297,7 +297,7 @@ There are two common uses for these convenience functions:
 (add-edges* g1 (map (partial edge-with-attrs g2) (edges g2)))
 ```
 
-Note that the output of `node-with-attrs` and `edge-with-attrs` is annotated with ^:node or ^:edge metadata so that it can be safely and unambiguously recognized as a node or edge description if passed to the `build-graph` function.
+Note that the output of `node-with-attrs` and `edge-with-attrs` is annotated with metadata so it can be safely and unambiguously recognized as a node or edge description if passed to the `build-graph` function.
 
 #### Edges
 

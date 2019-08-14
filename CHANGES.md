@@ -1,5 +1,11 @@
 # Ubergraph Change Log
 
+## 0.7.2
+
+### Bugfixes
+
+* node-with-attrs wasn't safe for build-graph as claimed in doc string.
+
 ## 0.7.1
 
 ### Enhancements
