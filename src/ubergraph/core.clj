@@ -567,9 +567,9 @@
 (defn- nodes-with-attrs [g]
   (for [n (nodes g)] [n (attrs g n)]))
 
-(defn node-with-attrs "Returns [node attribute-map] with ^:node metadata so it can be safely used as an input to build-graph"
+(defn node-with-attrs "Returns [node attribute-map], which can be safely used as an input to build-graph"
   [g node]
-  ^:node [node (attrs g node)])
+  [node (attrs g node)])
 
 (defn edge-with-attrs "Returns [src dest attribute-map] with ^:edge metadata so it can be safely used as an input to build-graph"
   [g edge]
