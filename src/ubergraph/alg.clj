@@ -13,38 +13,34 @@
 ;; Consider using Clojure data structures for better portability to Clojurescript
 
 (import-vars
-  [ubergraph.protocols
-   ; Path protocols
-   edges-in-path
-   nodes-in-path
-   cost-of-path
-   start-of-path
-   end-of-path
-   path-to
-;   path-between  Reserved for future use in all-paths algorithms
-   ]
-  [loom.alg
-   ; Curated loom algorithms
-   connected-components
-   connected?
-   pre-traverse
-   pre-span
-   post-traverse
-   topsort
-   bf-span
-   dag?
-   scc
-   strongly-connected?
-   connect
-   bipartite-color
-   bipartite?
-   bipartite-sets
-   coloring?
-   greedy-coloring
-   degeneracy-ordering
-   maximal-cliques
-   ]
-  )
+ [ubergraph.protocols
+  ;; Path protocols
+  edges-in-path
+  nodes-in-path
+  cost-of-path
+  start-of-path
+  end-of-path
+  path-to]
+ ;;   path-between  Reserved for future use in all-paths algorithms
+ 
+ [loom.alg
+  ;; Curated loom algorithms
+  connected-components
+  connected?
+  pre-traverse
+  pre-span
+  post-traverse
+  topsort
+  bf-traverse
+  bf-span
+  dag?
+  scc
+  strongly-connected?
+  connect
+  degeneracy-ordering
+  maximal-cliques])
+
+
 
 (declare find-path)
 
@@ -538,115 +534,199 @@ shortest-path has specific arities for the two most common combinations:
 
 (defn bellman-ford
   "Given an ubergraph g, and one or more start nodes,
-the Bellman-Ford algorithm produces an implementation of the
-IAllPathsFromSource protocol if no negative-weight cycle that is 
-reachable from the source exits, and false otherwise, indicating 
-that no solution exists.
+  the Bellman-Ford algorithm produces an implementation of the
+  IAllPathsFromSource protocol if no negative-weight cycle that is 
+  reachable from the source exits, and false otherwise, indicating 
+  that no solution exists.
 
-bellman-ford is very similar to shortest-path.  It is less efficient,
-but it correctly handles graphs with negative edges.  If you know you
-have edges with negative costs, use bellman-ford.  If you are unsure
-whether your graph has negative costs, or don't understand when and
-why you'd want to use bellman-ford, just use shortest-path and it
-will make the decision for you, calling this function if necessary. 
+  bellman-ford is very similar to shortest-path.  It is less efficient,
+  but it correctly handles graphs with negative edges.  If you know you
+  have edges with negative costs, use bellman-ford.  If you are unsure
+  whether your graph has negative costs, or don't understand when and
+  why you'd want to use bellman-ford, just use shortest-path and it
+  will make the decision for you, calling this function if necessary. 
 
-Takes a search-specification map which must contain:
-Either :start-node (single node) or :start-nodes (collection)
+  Takes a search-specification map which must contain:
+  Either :start-node (single node) or :start-nodes (collection)
 
-Map may contain the following entries:
-Either :end-node (single node) or :end-nodes (collection) or :end-node? (predicate function) 
-:cost-fn - A function that takes an edge as an input and returns a cost 
+  Map may contain the following entries:
+  Either :end-node (single node) or :end-nodes (collection) or :end-node? (predicate function) 
+  :cost-fn - A function that takes an edge as an input and returns a cost 
           (defaults to weight, or 1 if no weight is present)
-:cost-attr - Alternatively, can specify an edge attribute to use as the cost
-:node-filter - A predicate function that takes a node and returns true or false.
+  :cost-attr - Alternatively, can specify an edge attribute to use as the cost
+  :node-filter - A predicate function that takes a node and returns true or false.
           If specified, only nodes that pass this node-filter test will be considered in the search.
-:edge-filter - A predicate function that takes an edge and returns true or false.
+  :edge-filter - A predicate function that takes an edge and returns true or false.
           If specified, only edges that pass this edge-filter test will be considered in the search.
 
-Map may contain the following additional entries if a traversal sequence is desired:
-:traverse true - Changes output to be a sequence of paths in order encountered.
-:min-cost - Filters traversal sequence, only applies if :traverse is set to true
-:max-cost - Filters traversal sequence, only applies if :traverse is set to true
+  Map may contain the following additional entries if a traversal sequence is desired:
+  :traverse true - Changes output to be a sequence of paths in order encountered.
+  :min-cost - Filters traversal sequence, only applies if :traverse is set to true
+  :max-cost - Filters traversal sequence, only applies if :traverse is set to true
 
-bellman-ford has specific arity for the most common combination:
-(bellman-ford g start-node cost-attr)
-"
+  bellman-ford has specific arity for the most common combination:
+  (bellman-ford g start-node cost-attr)
+  "
   ([g start-node cost-attr] (bellman-ford g {:start-node start-node :cost-attr cost-attr}))
   ([g search-specification]
-    (assert (map? search-specification) "Second input must be a map, see docstring for options")
-    (assert (not (and (get search-specification :start-node)
-                      (get search-specification :start-nodes)))
-            "Can't specify both :start-node and :start-nodes")
-    (assert (<= 2 (count (filter nil? (map search-specification [:end-node :end-nodes :end-node?]))))
-            "Pick only one of :end-node, :end-nodes, or :end-node?")
-    (assert (not (and (get search-specification :cost-fn) 
-                      (get search-specification :cost-attr))) 
-            "Can't specify both a :cost-fn and a :cost-attr")
-    (let [cost-attr (get search-specification :cost-attr)
-          cost-fn (if cost-attr
-                    #(uber/attr g % cost-attr)
-                    (get search-specification :cost-fn))
-          node-filter (get search-specification :node-filter (constantly true))
-          edge-filter (get search-specification :edge-filter (constantly true))
-          starting-nodes (if-let [start-node (:start-node search-specification)]
-                           [start-node]
-                           (:start-nodes search-specification))
-          starting-nodes (filter #(and (uber/has-node? g %)
-                                       (node-filter %))
-                                 starting-nodes)
-          valid-nodes (filter node-filter (uber/nodes g))
-          end-nodes (cond
-                      (:end-node search-specification) [(:end-node search-specification)]
-                      (:end-nodes search-specification) (:end-nodes search-specification)
-                      (:end-node? search-specification) (filter (:end-node? search-specification) valid-nodes)
-                      :else nil)
-          goal? (set end-nodes)          
-          traversal? (:traverse search-specification)
-          min-cost (get search-specification :min-cost java.lang.Double/NEGATIVE_INFINITY)
-          max-cost (get search-specification :max-cost java.lang.Double/POSITIVE_INFINITY)]
-      (assert (<= min-cost max-cost) ":min-cost must be less-than-or-equal to :max-cost")
-      (assert (or (not (or (:min-cost search-specification) (:max-cost search-specification)))
-                  traversal?)
-              ":min-cost and :max-cost have no effect unless you set :traverse to true")
+   (assert (map? search-specification) "Second input must be a map, see docstring for options")
+   (assert (not (and (get search-specification :start-node)
+                     (get search-specification :start-nodes)))
+           "Can't specify both :start-node and :start-nodes")
+   (assert (<= 2 (count (filter nil? (map search-specification [:end-node :end-nodes :end-node?]))))
+           "Pick only one of :end-node, :end-nodes, or :end-node?")
+   (assert (not (and (get search-specification :cost-fn) 
+                     (get search-specification :cost-attr))) 
+           "Can't specify both a :cost-fn and a :cost-attr")
+   (let [cost-attr (get search-specification :cost-attr)
+         cost-fn (if cost-attr
+                   #(uber/attr g % cost-attr)
+                   (get search-specification :cost-fn))
+         node-filter (get search-specification :node-filter (constantly true))
+         edge-filter (get search-specification :edge-filter (constantly true))
+         starting-nodes (if-let [start-node (:start-node search-specification)]
+                          [start-node]
+                          (:start-nodes search-specification))
+         starting-nodes (filter #(and (uber/has-node? g %)
+                                      (node-filter %))
+                                starting-nodes)
+         valid-nodes (filter node-filter (uber/nodes g))
+         end-nodes (cond
+                     (:end-node search-specification) [(:end-node search-specification)]
+                     (:end-nodes search-specification) (:end-nodes search-specification)
+                     (:end-node? search-specification) (filter (:end-node? search-specification) valid-nodes)
+                     :else nil)
+         goal? (set end-nodes)          
+         traversal? (:traverse search-specification)
+         min-cost (get search-specification :min-cost java.lang.Double/NEGATIVE_INFINITY)
+         max-cost (get search-specification :max-cost java.lang.Double/POSITIVE_INFINITY)]
+     (assert (<= min-cost max-cost) ":min-cost must be less-than-or-equal to :max-cost")
+     (assert (or (not (or (:min-cost search-specification) (:max-cost search-specification)))
+                 traversal?)
+             ":min-cost and :max-cost have no effect unless you set :traverse to true")
 
-      (when (seq starting-nodes)
-        (let [initial-estimates (init-estimates g starting-nodes node-filter)
-              edges (fn [] (for [n (shuffle valid-nodes)  ;shuffling nodes improves running time
-                                 :when (node-filter n)
-                                 e (uber/out-edges g n)
-                                 :when (and (edge-filter e) (node-filter (uber/dest e)))]
-                             e))
-              ;;relax-edges is calculated for all edges V-1 times
-              [costs backlinks :as answer] (reduce (fn [estimates _]
-                                                     (relax-edges edges estimates cost-fn))
-                                                   initial-estimates
-                                                   (range (dec (count valid-nodes))))]
-          (if (and (not (:bellman-ford-complete (meta answer)))
-                   (some
-                     (fn [edge] (can-relax-edge? edge (cost-fn edge) costs))
-                     (edges)))
-            false
-            (let [backlinks (reduce (fn [links node] (if (= Double/POSITIVE_INFINITY (get costs node))
-                                                       (dissoc links node)
-                                                       links))
-                                    backlinks
-                                    valid-nodes)
-                  all-paths-from-source (->AllPathsFromSource (Collections/unmodifiableMap backlinks) (Collections/unmodifiableMap costs))]
-              (cond
-                traversal?
-                (->> (vec valid-nodes)
-                  (r/map #(path-to all-paths-from-source %))
-                  (r/filter #(<= min-cost (cost-of-path %) max-cost))
-                  r/foldcat
-                  sort),
-                
-                end-nodes
-                (->> (vec end-nodes)
-                  (r/map #(path-to all-paths-from-source %))
-                  r/foldcat
-                  (apply min-key cost-of-path))
-                
-                :else
-                all-paths-from-source))))))))
-                
- 
+     (when (seq starting-nodes)
+       (let [initial-estimates (init-estimates g starting-nodes node-filter)
+             edges (fn [] (for [n (shuffle valid-nodes)  ;shuffling nodes improves running time
+                                :when (node-filter n)
+                                e (uber/out-edges g n)
+                                :when (and (edge-filter e) (node-filter (uber/dest e)))]
+                            e))
+             ;;relax-edges is calculated for all edges V-1 times
+             [costs backlinks :as answer] (reduce (fn [estimates _]
+                                                    (relax-edges edges estimates cost-fn))
+                                                  initial-estimates
+                                                  (range (dec (count valid-nodes))))]
+         (if (and (not (:bellman-ford-complete (meta answer)))
+                  (some
+                   (fn [edge] (can-relax-edge? edge (cost-fn edge) costs))
+                   (edges)))
+           false
+           (let [backlinks (reduce (fn [links node] (if (= Double/POSITIVE_INFINITY (get costs node))
+                                                      (dissoc links node)
+                                                      links))
+                                   backlinks
+                                   valid-nodes)
+                 all-paths-from-source (->AllPathsFromSource (Collections/unmodifiableMap backlinks) (Collections/unmodifiableMap costs))]
+             (cond
+               traversal?
+               (->> (vec valid-nodes)
+                    (r/map #(path-to all-paths-from-source %))
+                    (r/filter #(<= min-cost (cost-of-path %) max-cost))
+                    r/foldcat
+                    sort),
+               
+               end-nodes
+               (->> (vec end-nodes)
+                    (r/map #(path-to all-paths-from-source %))
+                    r/foldcat
+                    (apply min-key cost-of-path))
+               
+               :else
+               all-paths-from-source))))))))
+
+
+;; Some things from Loom that don't quite work as-is
+
+(defn bipartite-color
+  "Attempts a two-coloring of graph g. When successful, returns a map of
+  nodes to colors (1 or 0). Otherwise, returns nil."
+  [g]
+  (letfn [(color-component [coloring start]
+            (loop [coloring (assoc coloring start 1)
+                   queue (conj clojure.lang.PersistentQueue/EMPTY start)]
+              (if (empty? queue)
+                coloring
+                (let [v (peek queue)
+                      color (- 1 (coloring v))
+                      nbrs (uber/neighbors g v)]
+                  (if (some #(and (coloring %) (= (coloring v) (coloring %)))
+                            nbrs)
+                    nil ; graph is not bipartite
+                    (let [nbrs (remove coloring nbrs)]
+                      (recur (into coloring (for [nbr nbrs] [nbr color]))
+                             (into (pop queue) nbrs))))))))]
+    (loop [[node & nodes] (seq (uber/nodes g))
+           coloring {}]
+      (when coloring
+        (if (nil? node)
+          coloring
+          (if (coloring node)
+            (recur nodes coloring)
+            (recur nodes (color-component coloring node))))))))
+
+(defn bipartite?
+  "Returns true if g is bipartite"
+  [g]
+  (boolean (bipartite-color g)))
+
+(defn bipartite-sets
+  "Returns two sets of nodes, one for each color of the bipartite coloring,
+  or nil if g is not bipartite"
+  [g]
+  (when-let [coloring (bipartite-color g)]
+    (reduce
+     (fn [[s1 s2] [node color]]
+       (if (zero? color)
+         [(conj s1 node) s2]
+         [s1 (conj s2 node)]))
+     [#{} #{}]
+     coloring)))
+
+(defn- neighbor-colors
+  "Given a putative coloring of a graph, returns the colors of all the
+  neighbors of a given node."
+  [g node coloring]
+  (let [neighbors (uber/neighbors g node)]
+    (into #{} (keep #(get coloring %)) neighbors)))
+
+(defn coloring?
+  "Returns true if a map of nodes to colors is a proper coloring of a graph."
+  [g coloring]
+  (letfn [(different-colors? [node]
+            (not (contains? (neighbor-colors g node coloring)
+                            (coloring node))))]
+    (and (every? different-colors? (uber/nodes g))
+         (every? (complement nil?) (map #(get coloring %)
+                                        (uber/nodes g))))))
+
+(defn greedy-coloring
+  "Greedily color the vertices of a graph using the first-fit heuristic.
+  Returns a map of nodes to colors (0, 1, ...)."
+  [g]
+  (loop [node-seq (bf-traverse g)
+         coloring {}
+         colors #{}]
+    (if (empty? node-seq)
+      coloring
+      (let [node (first node-seq)
+            possible-colors (clojure.set/difference colors
+                                                    (neighbor-colors g
+                                                                     node
+                                                                     coloring))
+            node-color (if (empty? possible-colors)
+                         (count colors)
+                         (apply min possible-colors))]
+        (recur (rest node-seq)
+               (conj coloring [node node-color])
+               (conj colors node-color))))))
