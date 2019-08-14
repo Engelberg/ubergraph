@@ -135,19 +135,15 @@
   (successors* [g node] (keys (select-any (keypath :node-map node :out-edges) g)))
   (out-degree [g node] (select-any (keypath :node-map node :out-degree) g))
   (out-edges [g node]
-             (map #(with-meta % g)
-                  (apply concat
-                         (vals (select-any (keypath :node-map node :out-edges)
-                                           g)))))
+             (sequence (comp cat (map #(with-meta % g)))
+                       (vals (select-any (keypath :node-map node :out-edges) g))))
   
   lg/Digraph
   (predecessors* [g node] (keys (select-any (keypath :node-map node :in-edges) g)))
   (in-degree [g node] (select-any (keypath :node-map node :in-degree) g))
   (in-edges [g node]
-            (map #(with-meta % g)
-                 (apply concat
-                        (vals (select-any (keypath :node-map node :in-edges)
-                                          g)))))
+            (sequence (comp cat (map #(with-meta % g)))
+                      (vals (select-any (keypath :node-map node :in-edges) g))))
   (transpose [g] (transpose-impl g))
 
   lg/WeightedGraph
