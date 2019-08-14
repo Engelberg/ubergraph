@@ -39,11 +39,10 @@
    bipartite-color
    bipartite?
    bipartite-sets
-;   The following functions are in snapshot, but not in Loom 0.5.0   
-;   coloring?
-;   greedy-coloring
-;   degeneracy-ordering
-;   maximal-cliques
+   coloring?
+   greedy-coloring
+   degeneracy-ordering
+   maximal-cliques
    ]
   )
 

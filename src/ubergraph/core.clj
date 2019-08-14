@@ -236,14 +236,19 @@
                            (equal-graphs? this other)))
   )
 
+(defn neighbors
+  "Returns seq of nodes that are either successors or predecessors of the node"
+  [g node]
+  (distinct (concat (successors g node) (predecessors g node))))
+
 (defn undirected-graph? "If true, new edges in g are undirected by default.  If false,
-new edges in g are directed by default."
+  new edges in g are directed by default."
   [g] (:undirected? g))
 
 (defn allow-parallel-edges? "If true, two edges between the same pair of nodes in the same direction
-are permitted.  If false, adding a new edge between the same pair of nodes as an existing edge will
-merge the edges into a single edge, and adding an undirected edge on top of an existing directed edge
-will `upgrade' the directed edge to undirected and merge attributes."
+  are permitted.  If false, adding a new edge between the same pair of nodes as an existing edge will
+  merge the edges into a single edge, and adding an undirected edge on top of an existing directed edge
+  will `upgrade' the directed edge to undirected and merge attributes."
   [g] (:allow-parallel? g))
 
 ;; A node-id is anything the user wants it to be -- a number, a keyword, a data structure
@@ -286,7 +291,7 @@ will `upgrade' the directed edge to undirected and merge attributes."
   (nth [e i notFound] (case i 0 src 1 dest 2 (attr (meta e) e :weight) notFound)))
 
 (extend-type
-  Object
+    Object
   up/MixedDirectionEdgeTests
   (undirected-edge? [e] false)
   (directed-edge? [e] false)
@@ -345,20 +350,20 @@ will `upgrade' the directed edge to undirected and merge attributes."
 
 (defn- find-edges-impl
   ([g src dest]
-    (get-in g [:node-map src :out-edges dest]))
+   (get-in g [:node-map src :out-edges dest]))
   ([g {src :src dest :dest :as attributes}]
-    (let [edges
-          (cond
-            (and src dest) (get-in g [:node-map src :out-edges dest])
-            src (out-edges g src)
-            dest (in-edges g dest)
-            :else (edges g))
-          attributes (dissoc attributes :src :dest)]
-      (if (pos? (count attributes))
-        (for [edge edges
-              :when (submap? attributes (get-in g [:attrs (:id edge)]))]
-          edge)
-        edges))))
+   (let [edges
+         (cond
+           (and src dest) (get-in g [:node-map src :out-edges dest])
+           src (out-edges g src)
+           dest (in-edges g dest)
+           :else (edges g))
+         attributes (dissoc attributes :src :dest)]
+     (if (pos? (count attributes))
+       (for [edge edges
+             :when (submap? attributes (get-in g [:attrs (:id edge)]))]
+         edge)
+       edges))))
 
 (defn- find-edge-impl [& args]
   (first (apply find-edges-impl args)))
@@ -423,7 +428,7 @@ will `upgrade' the directed edge to undirected and merge attributes."
           
           (:undirected? g) (add-undirected-edge g src dest attributes)
           :else (add-directed-edge g src dest attributes)))))
-  
+
 (defn- force-add-directed-edge
   [g [src dest attributes :as edge]]
   (if (edge? edge) (throw (ex-info "add-directed-edges takes edge descriptions, not Edge objects. Use `edge-with-attrs` to get edge description from an Edge." {:edge edge}))
@@ -451,15 +456,15 @@ will `upgrade' the directed edge to undirected and merge attributes."
 
 (defn edge-description->edge
   "Many ubergraph functions can take either an *edge description* (i.e., [src dest]
-[src dest weight] or [src dest attribute-map]) or an actual edge object.  This function
-is used to convert edge descriptions into an edge object, or passing through an edge
-object unchanged, so regardless of what you pass in, you're guaranteed to get out
-an edge object."
+  [src dest weight] or [src dest attribute-map]) or an actual edge object.  This function
+  is used to convert edge descriptions into an edge object, or passing through an edge
+  object unchanged, so regardless of what you pass in, you're guaranteed to get out
+  an edge object."
   [g ed]
   (cond
     (edge? ed) ed
     (not (vector? ed)) (throw (IllegalArgumentException.
-                                (str "Invalid edge description: " ed)))
+                               (str "Invalid edge description: " ed)))
     (= (count ed) 2) (find-edge g (ed 0) (ed 1))
     (= (count ed) 3)
     (cond (number? (ed 2))
@@ -468,19 +473,19 @@ an edge object."
           (find-edge g (assoc (ed 2) :src (ed 0) :dest (ed 1)))
           :else
           (throw (IllegalArgumentException.
-                   (str "Invalid edge description: " ed))))))
+                  (str "Invalid edge description: " ed))))))
 
 (defn- resolve-node-or-edge
   "Similar to edge-description->edge in that it converts edge descriptions to edge objects,
-but this function also passes nodes through unchanged, and extracts the edge id if
-it is an edge."
+  but this function also passes nodes through unchanged, and extracts the edge id if
+  it is an edge."
   [g node-or-edge]
   (cond (edge? node-or-edge) (:id node-or-edge)
         (has-node? g node-or-edge) node-or-edge
         :else
         (try (:id (edge-description->edge g node-or-edge))
-          (catch IllegalArgumentException e
-            (throw (IllegalArgumentException. (str "Invalid node or edge description: " node-or-edge)))))))
+             (catch IllegalArgumentException e
+               (throw (IllegalArgumentException. (str "Invalid node or edge description: " node-or-edge)))))))
 
 (defn- remove-edge-also-node-if-last-edge [node->edge-set node edge]
   (let [remaining-edges (disj (node->edge-set node) edge)]
@@ -547,17 +552,17 @@ it is an edge."
 (defn- strip-equal-id-edges
   ([inits] (strip-equal-id-edges (seq inits) #{}))
   ([inits seen-ids]
-    (when inits
-      (let [init (first inits)]
-        (cond
-          (edge? init) (if (seen-ids (:id init))
-                         (recur (next inits) seen-ids)
-                         (cons init (lazy-seq (strip-equal-id-edges
-                                                (next inits)
-                                                (conj seen-ids (:id init))))))
-          :else (cons init (lazy-seq (strip-equal-id-edges
-                                       (next inits)
-                                       seen-ids))))))))
+   (when inits
+     (let [init (first inits)]
+       (cond
+         (edge? init) (if (seen-ids (:id init))
+                        (recur (next inits) seen-ids)
+                        (cons init (lazy-seq (strip-equal-id-edges
+                                              (next inits)
+                                              (conj seen-ids (:id init))))))
+         :else (cons init (lazy-seq (strip-equal-id-edges
+                                     (next inits)
+                                     seen-ids))))))))
 
 (defn- nodes-with-attrs [g]
   (for [n (nodes g)] [n (attrs g n)]))
@@ -670,8 +675,8 @@ it is an edge."
 
 (defn ubergraph
   "General ubergraph construtor. Takes booleans for allow-parallel? and undirected? to
-call either graph, digraph, multigraph, or multidigraph.
-See build-graph for description of valid inits"
+  call either graph, digraph, multigraph, or multidigraph.
+  See build-graph for description of valid inits"
   [allow-parallel? undirected? & inits]
   (apply build-graph (->Ubergraph {} allow-parallel? undirected? {} (atom -1)) inits))
 
@@ -714,13 +719,13 @@ See build-graph for description of valid inits"
     (count (nodes g))))
 
 (defn count-edges "Counts how many edges are in g.
-Undirected edges are counted twice, once for each direction."
+  Undirected edges are counted twice, once for each direction."
   [g]
   (apply + (for [node (nodes g)]
              (out-degree g node))))
 
 (defn count-unique-edges "Counts how many edges are in g.
-Undirected edges are counted only once."
+  Undirected edges are counted only once."
   [g]
   (count (for [edge (edges g)
                :when (not (mirror-edge? edge))]
@@ -789,12 +794,12 @@ Undirected edges are counted only once."
 
 (defn- equal-nodes?
   "Assumes that we've already established (= (nodes g1) (nodes g2)).
-We're just checking the attributes here"
+  We're just checking the attributes here"
   [g1 g2]
   (let [g1-attrs (:attrs g1), g2-attrs (:attrs g2)]
     (if
-      (and (zero? (count g1-attrs))
-           (zero? (count g2-attrs)))
+        (and (zero? (count g1-attrs))
+             (zero? (count g2-attrs)))
       true
       (every? identity
               (for [n (nodes g1)]
@@ -808,18 +813,18 @@ We're just checking the attributes here"
 (defn- equal-graphs? [^Ubergraph g1 ^Ubergraph g2]
   (or (.equals g1 g2)
       (and
-        (or
-          (= @(:cached-hash g1) -1)
-          (= @(:cached-hash g2) -1)
-          (= @(:cached-hash g1) @(:cached-hash g2)))
-        (= (count-nodes g1) (count-nodes g2))
-        (= (node-set g1) (node-set g2))
-        (= (count-edges g1) (count-edges g2))
-        (equal-nodes? g1 g2)
-        (every? identity
-                (for [node1 (nodes g1),
-                      node2 (successors g1 node1)]
-                  (equal-edges? g1 g2 node1 node2))))))
+       (or
+        (= @(:cached-hash g1) -1)
+        (= @(:cached-hash g2) -1)
+        (= @(:cached-hash g1) @(:cached-hash g2)))
+       (= (count-nodes g1) (count-nodes g2))
+       (= (node-set g1) (node-set g2))
+       (= (count-edges g1) (count-edges g2))
+       (equal-nodes? g1 g2)
+       (every? identity
+               (for [node1 (nodes g1),
+                     node2 (successors g1 node1)]
+                 (equal-edges? g1 g2 node1 node2))))))
 
 (defn- hash-graph [g]
   (let [h (:cached-hash g)
@@ -870,17 +875,17 @@ We're just checking the attributes here"
 (defn- label [g]
   (as-> g $
     (reduce
-      (fn [g n]
-        (add-attr g n :label (str (if (keyword? n) (subs (str n) 1) n)
-                                  \newline
-                                  (escape-label (with-out-str (clojure.pprint/pprint (attrs g n)))))))
-      $ (nodes g))
+     (fn [g n]
+       (add-attr g n :label (str (if (keyword? n) (subs (str n) 1) n)
+                                 \newline
+                                 (escape-label (with-out-str (clojure.pprint/pprint (attrs g n)))))))
+     $ (nodes g))
     (reduce
-      (fn [g e]
-        (if (not (mirror-edge? e))
-          (add-attr g e :label (escape-label (with-out-str (clojure.pprint/pprint (attrs g e)))))
-          g))
-      $ (edges g))))
+     (fn [g e]
+       (if (not (mirror-edge? e))
+         (add-attr g e :label (escape-label (with-out-str (clojure.pprint/pprint (attrs g e)))))
+         g))
+     $ (edges g))))
 
 (defn- dotid [n]
   (if (or (string? n)
