@@ -1,6 +1,7 @@
 (ns ubergraph.core
   (:require [potemkin :refer [import-vars def-map-type deftype+]]
             [potemkin.collections :refer [AbstractMap]]
+            [com.rpl.specter :refer :all]
             [loom.graph :as lg]
             [loom.attr :as la]
             [ubergraph.protocols :as up]
@@ -129,23 +130,31 @@
                    [dest edges] (:out-edges node-info),
                    edge edges]
                (with-meta edge g)))
-  (has-node? [g node] (boolean (get-in g [:node-map node])))
+  (has-node? [g node] (selected-any? (must :node-map node) g))
   (has-edge? [g n1 n2] (boolean (seq (find-edges g n1 n2))))
-  (successors* [g node] (keys (get-in g [:node-map node :out-edges])))
-  (out-degree [g node] (get-in g [:node-map node :out-degree]))
-  (out-edges [g node] (map #(with-meta % g) (apply concat (vals (get-in g [:node-map node :out-edges])))))
-
+  (successors* [g node] (keys (select-any (keypath :node-map node :out-edges) g)))
+  (out-degree [g node] (select-any (keypath :node-map node :out-degree) g))
+  (out-edges [g node]
+             (sequence (comp cat (map #(with-meta % g)))
+                       (vals (select-any (keypath :node-map node :out-edges) g))))
+  
   lg/Digraph
-  (predecessors* [g node] (keys (get-in g [:node-map node :in-edges])))
-  (in-degree [g node] (get-in g [:node-map node :in-degree]))
-  (in-edges [g node] (map #(with-meta % g) (apply concat (vals (get-in g [:node-map node :in-edges])))))
+  (predecessors* [g node] (keys (select-any (keypath :node-map node :in-edges) g)))
+  (in-degree [g node] (select-any (keypath :node-map node :in-degree) g))
+  (in-edges [g node]
+            (sequence (comp cat (map #(with-meta % g)))
+                      (vals (select-any (keypath :node-map node :in-edges) g))))
   (transpose [g] (transpose-impl g))
 
   lg/WeightedGraph
   ;; Ubergraphs by default store weight in an attribute :weight
   ;; Using an attribute allows us to modify the weight with the AttrGraph protocol
-  (weight* [g e] (get-in g [:attrs (:id (edge-description->edge g e)) :weight] 1))
-  (weight* [g n1 n2] (get-in g [:attrs (:id (get-edge g n1 n2)) :weight] 1))
+  (weight* [g e]
+           (select-any [(keypath :attrs (:id (edge-description->edge g e)) :weight)
+                        (nil->val 1)] g))
+  (weight* [g n1 n2]
+           (select-any [(keypath :attrs (:id (get-edge g n1 n2)) :weight) (nil->val 1)]
+                       g))
 
   lg/EditableGraph
   (add-nodes* [g nodes] (reduce add-node g nodes))
@@ -157,34 +166,34 @@
 
   la/AttrGraph
   (add-attr [g node-or-edge k v]
-            (assoc-in g [:attrs (resolve-node-or-edge g node-or-edge) k] v))
+            (setval (keypath :attrs (resolve-node-or-edge g node-or-edge) k) v g))
   (add-attr [g n1 n2 k v] (add-attr g (get-edge g n1 n2) k v))
   (remove-attr [g node-or-edge k]
-               (update-in g [:attrs (resolve-node-or-edge g node-or-edge)] dissoc k))
+               (setval (must :attrs (resolve-node-or-edge g node-or-edge) k) NONE g))
   (remove-attr [g n1 n2 k] (remove-attr g (get-edge g n1 n2) k))
   (attr [g node-or-edge k]
-        (get-in g [:attrs (resolve-node-or-edge g node-or-edge) k]))
+        (select-any (keypath :attrs (resolve-node-or-edge g node-or-edge) k) g))
   (attr [g n1 n2 k] (attr g (get-edge g n1 n2) k))
   (la/attrs [g node-or-edge]
-            (get-in g [:attrs (resolve-node-or-edge g node-or-edge)] {}))
+            (select-any [(keypath :attrs (resolve-node-or-edge g node-or-edge))
+                         (nil->val {})] g))
   (la/attrs [g n1 n2] (la/attrs g (get-edge g n1 n2)))
 
   up/Attrs
   (add-attrs [g node-or-edge attribute-map]
-             (update-in g [:attrs (resolve-node-or-edge g node-or-edge)]
-                        merge attribute-map))
-  (add-attrs [g n1 n2 attribute-map]
+             (transform (keypath :attrs (resolve-node-or-edge g node-or-edge))
+                        #(merge % attribute-map) g))
+  (add-attrs [g n1 n2 attribute-map]             
              (add-attrs g (get-edge g n1 n2) attribute-map))
   (set-attrs [g node-or-edge attribute-map]
-             (assoc-in g [:attrs (resolve-node-or-edge g node-or-edge)] attribute-map))
+             (setval (keypath :attrs (resolve-node-or-edge g node-or-edge))
+                     attribute-map g))
   (set-attrs [g n1 n2 attribute-map]
              (set-attrs g (get-edge g n1 n2) attribute-map))
-
   (remove-attrs [g node-or-edge attributes]
-                (let [resolved (resolve-node-or-edge g node-or-edge),
-                      m (get-in g [:attrs resolved] {})]
-                  (assoc-in g [:attrs resolved]
-                            (apply dissoc m attributes))))
+                (transform [(must :attrs (resolve-node-or-edge g node-or-edge))
+                            (nil->val {})]
+                           #(apply dissoc % attributes) g))
   (remove-attrs [g n1 n2 attributes]
                 (remove-attrs g (get-edge g n1 n2) attributes))
 
@@ -237,13 +246,13 @@
   )
 
 (defn undirected-graph? "If true, new edges in g are undirected by default.  If false,
-new edges in g are directed by default."
+  new edges in g are directed by default."
   [g] (:undirected? g))
 
 (defn allow-parallel-edges? "If true, two edges between the same pair of nodes in the same direction
-are permitted.  If false, adding a new edge between the same pair of nodes as an existing edge will
-merge the edges into a single edge, and adding an undirected edge on top of an existing directed edge
-will `upgrade' the directed edge to undirected and merge attributes."
+  are permitted.  If false, adding a new edge between the same pair of nodes as an existing edge will
+  merge the edges into a single edge, and adding an undirected edge on top of an existing directed edge
+  will `upgrade' the directed edge to undirected and merge attributes."
   [g] (:allow-parallel? g))
 
 ;; A node-id is anything the user wants it to be -- a number, a keyword, a data structure
@@ -286,7 +295,7 @@ will `upgrade' the directed edge to undirected and merge attributes."
   (nth [e i notFound] (case i 0 src 1 dest 2 (attr (meta e) e :weight) notFound)))
 
 (extend-type
-  Object
+    Object
   up/MixedDirectionEdgeTests
   (undirected-edge? [e] false)
   (directed-edge? [e] false)
@@ -308,11 +317,9 @@ will `upgrade' the directed edge to undirected and merge attributes."
 
 (defn- get-edge [g n1 n2] (first (find-edges g n1 n2)))
 
-(defn- add-node
-  [g node]
-  (cond
-    (get-in g [:node-map node]) g  ; node already exists
-    :else (assoc-in g [:node-map node] (->NodeInfo {} {} 0 0))))
+(defn- add-node [g node]
+  (setval [:node-map (if-path (must node) STOP (keypath node))]
+          (->NodeInfo {} {} 0 0) g))
 
 (defn- add-node-with-attrs
   "Adds node to g with a given attribute map. Takes a [node attribute-map] pair."
@@ -345,20 +352,20 @@ will `upgrade' the directed edge to undirected and merge attributes."
 
 (defn- find-edges-impl
   ([g src dest]
-    (get-in g [:node-map src :out-edges dest]))
+   (select-any (keypath :node-map src :out-edges dest) g))
   ([g {src :src dest :dest :as attributes}]
-    (let [edges
-          (cond
-            (and src dest) (get-in g [:node-map src :out-edges dest])
-            src (out-edges g src)
-            dest (in-edges g dest)
-            :else (edges g))
-          attributes (dissoc attributes :src :dest)]
-      (if (pos? (count attributes))
-        (for [edge edges
-              :when (submap? attributes (get-in g [:attrs (:id edge)]))]
-          edge)
-        edges))))
+   (let [edges
+         (cond
+           (and src dest) (select-any (keypath :node-map src :out-edges dest) g)
+           src (out-edges g src)
+           dest (in-edges g dest)
+           :else (edges g))
+         attributes (dissoc attributes :src :dest)]
+     (if (pos? (count attributes))
+       (for [edge edges
+             :when (submap? attributes (select-any (keypath :attrs (:id edge)) g))]
+         edge)
+       edges))))
 
 (defn- find-edge-impl [& args]
   (first (apply find-edges-impl args)))
@@ -371,15 +378,15 @@ will `upgrade' the directed edge to undirected and merge attributes."
                     (assoc (:attrs g) edge-id attributes)
                     (:attrs g))
         node-map (:node-map g)
-        node-map-src (get node-map src)
-        node-map-dest (get node-map dest)
-        new-node-map-src (-> node-map-src
-                             (update-in [:out-edges dest] fconj edge)
-                             (update :out-degree finc))
-        new-node-map-dest (-> (if (= src dest) new-node-map-src node-map-dest)
-                              (update-in [:in-edges src] fconj edge)
-                              (update :in-degree finc))
-        new-node-map (assoc node-map src new-node-map-src dest new-node-map-dest)]
+        new-node-map
+        (multi-transform
+         (multi-path [(keypath src) (multi-path [(keypath :out-edges dest)
+                                                 (terminal #(fconj % edge))]
+                                                [:out-degree (terminal finc)])]
+                     [(keypath dest) (multi-path [(keypath :in-edges src)
+                                                  (terminal #(fconj % edge))]
+                                                 [:in-degree (terminal finc)])])
+         node-map)]
     (Ubergraph. new-node-map (:allow-parallel? g) (:undirected? g) new-attrs (atom -1))))
 
 (defn- add-undirected-edge [g src dest attributes]
@@ -392,19 +399,21 @@ will `upgrade' the directed edge to undirected and merge attributes."
                     (assoc (:attrs g) forward-edge-id attributes)
                     (:attrs g))
         node-map (:node-map g)
-        node-map-src (get node-map src)
-        node-map-dest (get node-map dest)
-        new-node-map-src (-> node-map-src
-                             (update-in [:out-edges dest] fconj forward-edge)
-                             (update-in [:in-edges dest] fconj backward-edge)
-                             (update :in-degree finc)
-                             (update :out-degree finc))
-        new-node-map-dest (-> (if (= src dest) new-node-map-src node-map-dest)
-                              (update-in [:out-edges src] fconj backward-edge)
-                              (update-in [:in-edges src] fconj forward-edge)
-                              (update :in-degree finc)
-                              (update :out-degree finc))
-        new-node-map (assoc node-map src new-node-map-src dest new-node-map-dest)]
+        new-node-map
+        (multi-transform
+         (multi-path [(keypath src) (multi-path [(keypath :out-edges dest)
+                                                 (terminal #(fconj % forward-edge))]
+                                                [(keypath :in-edges dest)
+                                                 (terminal #(fconj % backward-edge))]
+                                                [:in-degree (terminal finc)]
+                                                [:out-degree (terminal finc)])]
+                     [(keypath dest) (multi-path [(keypath :in-edges src)
+                                                  (terminal #(fconj % forward-edge))]
+                                                 [(keypath :out-edges src)
+                                                  (terminal #(fconj % backward-edge))]
+                                                 [:in-degree (terminal finc)]
+                                                 [:out-degree (terminal finc)])])
+         node-map)]
     (Ubergraph. new-node-map (:allow-parallel? g) (:undirected? g) new-attrs (atom -1))))
 
 (defn- number->map [n]
@@ -417,13 +426,13 @@ will `upgrade' the directed edge to undirected and merge attributes."
         (cond
           (and (not (:allow-parallel? g)) (get-edge g src dest))
           (if attributes
-            (update-in g [:attrs (:id (get-edge g src dest))]
-                       merge attributes)
+            (transform (keypath :attrs (:id (get-edge g src dest)))
+                       #(merge % attributes) g)
             g)
           
           (:undirected? g) (add-undirected-edge g src dest attributes)
           :else (add-directed-edge g src dest attributes)))))
-  
+
 (defn- force-add-directed-edge
   [g [src dest attributes :as edge]]
   (if (edge? edge) (throw (ex-info "add-directed-edges takes edge descriptions, not Edge objects. Use `edge-with-attrs` to get edge description from an Edge." {:edge edge}))
@@ -431,8 +440,8 @@ will `upgrade' the directed edge to undirected and merge attributes."
         (cond
           (and (not (:allow-parallel? g)) (get-edge g src dest))
           (if attributes
-            (update-in g [:attrs (:id (get-edge g src dest))]
-                       merge attributes)
+            (transform (keypath :attrs (:id (get-edge g src dest)))
+                       #(merge % attributes) g)
             g)
           :else (add-directed-edge g src dest attributes)))))
 
@@ -451,15 +460,15 @@ will `upgrade' the directed edge to undirected and merge attributes."
 
 (defn edge-description->edge
   "Many ubergraph functions can take either an *edge description* (i.e., [src dest]
-[src dest weight] or [src dest attribute-map]) or an actual edge object.  This function
-is used to convert edge descriptions into an edge object, or passing through an edge
-object unchanged, so regardless of what you pass in, you're guaranteed to get out
-an edge object."
+  [src dest weight] or [src dest attribute-map]) or an actual edge object.  This function
+  is used to convert edge descriptions into an edge object, or passing through an edge
+  object unchanged, so regardless of what you pass in, you're guaranteed to get out
+  an edge object."
   [g ed]
   (cond
     (edge? ed) ed
     (not (vector? ed)) (throw (IllegalArgumentException.
-                                (str "Invalid edge description: " ed)))
+                               (str "Invalid edge description: " ed)))
     (= (count ed) 2) (find-edge g (ed 0) (ed 1))
     (= (count ed) 3)
     (cond (number? (ed 2))
@@ -468,19 +477,19 @@ an edge object."
           (find-edge g (assoc (ed 2) :src (ed 0) :dest (ed 1)))
           :else
           (throw (IllegalArgumentException.
-                   (str "Invalid edge description: " ed))))))
+                  (str "Invalid edge description: " ed))))))
 
 (defn- resolve-node-or-edge
   "Similar to edge-description->edge in that it converts edge descriptions to edge objects,
-but this function also passes nodes through unchanged, and extracts the edge id if
-it is an edge."
+  but this function also passes nodes through unchanged, and extracts the edge id if
+  it is an edge."
   [g node-or-edge]
   (cond (edge? node-or-edge) (:id node-or-edge)
         (has-node? g node-or-edge) node-or-edge
         :else
         (try (:id (edge-description->edge g node-or-edge))
-          (catch IllegalArgumentException e
-            (throw (IllegalArgumentException. (str "Invalid node or edge description: " node-or-edge)))))))
+             (catch IllegalArgumentException e
+               (throw (IllegalArgumentException. (str "Invalid node or edge description: " node-or-edge)))))))
 
 (defn- remove-edge-also-node-if-last-edge [node->edge-set node edge]
   (let [remaining-edges (disj (node->edge-set node) edge)]
@@ -492,31 +501,45 @@ it is an edge."
   [g edge]
   ;; Check whether edge exists before deleting
   (let [{:keys [src dest id] :as edge} (edge-description->edge g edge)]
-    (if (get-in g [:node-map src :out-edges dest edge])
+    (if (selected-any? (must :node-map src :out-edges dest edge) g)
       (if-let
           [reverse-edge (other-direction g edge)]
-        (-> g
-            (update :attrs dissoc id)
-            (update-in [:node-map src :out-edges]
-                       remove-edge-also-node-if-last-edge dest edge)
-            (update-in [:node-map src :in-edges]
-                       remove-edge-also-node-if-last-edge dest reverse-edge)
-            (update-in [:node-map src :in-degree] dec)
-            (update-in [:node-map src :out-degree] dec)
-            (update-in [:node-map dest :out-edges]
-                       remove-edge-also-node-if-last-edge src reverse-edge)
-            (update-in [:node-map dest :in-edges]
-                       remove-edge-also-node-if-last-edge src edge)
-            (update-in [:node-map dest :in-degree] dec)
-            (update-in [:node-map dest :out-degree] dec))
-        (-> g
-            (update :attrs dissoc id)
-            (update-in [:node-map src :out-edges]
-                       remove-edge-also-node-if-last-edge dest edge)
-            (update-in [:node-map src :out-degree] dec)
-            (update-in [:node-map dest :in-edges]
-                       remove-edge-also-node-if-last-edge src edge)
-            (update-in [:node-map dest :in-degree] dec)))
+        (multi-transform
+         (multi-path
+          [:attrs (terminal #(dissoc % id))]
+          [:node-map
+           (multi-path
+            [(must src)
+             (multi-path [:out-edges
+                          (terminal #(remove-edge-also-node-if-last-edge % dest edge))]
+                         [:in-edges
+                          (terminal #(remove-edge-also-node-if-last-edge
+                                      % dest reverse-edge))]
+                         [:in-degree (terminal dec)]
+                         [:out-degree (terminal dec)])]
+            [(must dest)
+             (multi-path [:out-edges
+                          (terminal #(remove-edge-also-node-if-last-edge
+                                      % src reverse-edge))]
+                         [:in-edges
+                          (terminal #(remove-edge-also-node-if-last-edge % src edge))]
+                         [:in-degree (terminal dec)]
+                         [:out-degree (terminal dec)])])])
+         g)
+        (multi-transform
+         (multi-path
+          [:attrs (terminal #(dissoc % id))]
+          [:node-map
+           (multi-path
+            [(must src)
+             (multi-path [:out-edges
+                          (terminal #(remove-edge-also-node-if-last-edge % dest edge))]
+                         [:out-degree (terminal dec)])]
+            [(must dest)
+             (multi-path [:in-edges
+                          (terminal #(remove-edge-also-node-if-last-edge % src edge))]
+                         [:in-degree (terminal dec)])])])
+         g))
       g)))
 
 (defn- swap-edge [edge]
@@ -525,8 +548,10 @@ it is an edge."
 (defn- transpose-impl [{:keys [node-map allow-parallel? undirected? attrs reverse-edges]}]
   (let [new-node-map
         (into {} (for [[node {:keys [in-edges out-edges in-degree out-degree]}] node-map
-                       :let [new-in-edges (into {} (for [[k v] out-edges] [k (set (map swap-edge v))])),
-                             new-out-edges (into {} (for [[k v] in-edges] [k (set (map swap-edge v))]))]]
+                       :let [new-in-edges
+                             (transform [MAP-VALS ALL] swap-edge out-edges),
+                             new-out-edges
+                             (transform [MAP-VALS ALL] swap-edge in-edges)]]
                    [node (NodeInfo. new-out-edges new-in-edges in-degree out-degree)])),
 
         new-attrs (into {} (for [[o attr] attrs]
@@ -547,17 +572,17 @@ it is an edge."
 (defn- strip-equal-id-edges
   ([inits] (strip-equal-id-edges (seq inits) #{}))
   ([inits seen-ids]
-    (when inits
-      (let [init (first inits)]
-        (cond
-          (edge? init) (if (seen-ids (:id init))
-                         (recur (next inits) seen-ids)
-                         (cons init (lazy-seq (strip-equal-id-edges
-                                                (next inits)
-                                                (conj seen-ids (:id init))))))
-          :else (cons init (lazy-seq (strip-equal-id-edges
-                                       (next inits)
-                                       seen-ids))))))))
+   (when inits
+     (let [init (first inits)]
+       (cond
+         (edge? init) (if (seen-ids (:id init))
+                        (recur (next inits) seen-ids)
+                        (cons init (lazy-seq (strip-equal-id-edges
+                                              (next inits)
+                                              (conj seen-ids (:id init))))))
+         :else (cons init (lazy-seq (strip-equal-id-edges
+                                     (next inits)
+                                     seen-ids))))))))
 
 (defn- nodes-with-attrs [g]
   (for [n (nodes g)] [n (attrs g n)]))
@@ -670,8 +695,8 @@ it is an edge."
 
 (defn ubergraph
   "General ubergraph construtor. Takes booleans for allow-parallel? and undirected? to
-call either graph, digraph, multigraph, or multidigraph.
-See build-graph for description of valid inits"
+  call either graph, digraph, multigraph, or multidigraph.
+  See build-graph for description of valid inits"
   [allow-parallel? undirected? & inits]
   (apply build-graph (->Ubergraph {} allow-parallel? undirected? {} (atom -1)) inits))
 
@@ -714,13 +739,13 @@ See build-graph for description of valid inits"
     (count (nodes g))))
 
 (defn count-edges "Counts how many edges are in g.
-Undirected edges are counted twice, once for each direction."
+  Undirected edges are counted twice, once for each direction."
   [g]
   (apply + (for [node (nodes g)]
              (out-degree g node))))
 
 (defn count-unique-edges "Counts how many edges are in g.
-Undirected edges are counted only once."
+  Undirected edges are counted only once."
   [g]
   (count (for [edge (edges g)
                :when (not (mirror-edge? edge))]
@@ -789,12 +814,12 @@ Undirected edges are counted only once."
 
 (defn- equal-nodes?
   "Assumes that we've already established (= (nodes g1) (nodes g2)).
-We're just checking the attributes here"
+  We're just checking the attributes here"
   [g1 g2]
   (let [g1-attrs (:attrs g1), g2-attrs (:attrs g2)]
     (if
-      (and (zero? (count g1-attrs))
-           (zero? (count g2-attrs)))
+        (and (zero? (count g1-attrs))
+             (zero? (count g2-attrs)))
       true
       (every? identity
               (for [n (nodes g1)]
@@ -808,18 +833,18 @@ We're just checking the attributes here"
 (defn- equal-graphs? [^Ubergraph g1 ^Ubergraph g2]
   (or (.equals g1 g2)
       (and
-        (or
-          (= @(:cached-hash g1) -1)
-          (= @(:cached-hash g2) -1)
-          (= @(:cached-hash g1) @(:cached-hash g2)))
-        (= (count-nodes g1) (count-nodes g2))
-        (= (node-set g1) (node-set g2))
-        (= (count-edges g1) (count-edges g2))
-        (equal-nodes? g1 g2)
-        (every? identity
-                (for [node1 (nodes g1),
-                      node2 (successors g1 node1)]
-                  (equal-edges? g1 g2 node1 node2))))))
+       (or
+        (= @(:cached-hash g1) -1)
+        (= @(:cached-hash g2) -1)
+        (= @(:cached-hash g1) @(:cached-hash g2)))
+       (= (count-nodes g1) (count-nodes g2))
+       (= (node-set g1) (node-set g2))
+       (= (count-edges g1) (count-edges g2))
+       (equal-nodes? g1 g2)
+       (every? identity
+               (for [node1 (nodes g1),
+                     node2 (successors g1 node1)]
+                 (equal-edges? g1 g2 node1 node2))))))
 
 (defn- hash-graph [g]
   (let [h (:cached-hash g)
@@ -870,17 +895,17 @@ We're just checking the attributes here"
 (defn- label [g]
   (as-> g $
     (reduce
-      (fn [g n]
-        (add-attr g n :label (str (if (keyword? n) (subs (str n) 1) n)
-                                  \newline
-                                  (escape-label (with-out-str (clojure.pprint/pprint (attrs g n)))))))
-      $ (nodes g))
+     (fn [g n]
+       (add-attr g n :label (str (if (keyword? n) (subs (str n) 1) n)
+                                 \newline
+                                 (escape-label (with-out-str (clojure.pprint/pprint (attrs g n)))))))
+     $ (nodes g))
     (reduce
-      (fn [g e]
-        (if (not (mirror-edge? e))
-          (add-attr g e :label (escape-label (with-out-str (clojure.pprint/pprint (attrs g e)))))
-          g))
-      $ (edges g))))
+     (fn [g e]
+       (if (not (mirror-edge? e))
+         (add-attr g e :label (escape-label (with-out-str (clojure.pprint/pprint (attrs g e)))))
+         g))
+     $ (edges g))))
 
 (defn- dotid [n]
   (if (or (string? n)
