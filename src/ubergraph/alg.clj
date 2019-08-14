@@ -37,10 +37,13 @@
   scc
   strongly-connected?
   connect
+  coloring?
+  greedy-coloring
   degeneracy-ordering
   maximal-cliques])
 
-
+;; TBD - Looking for volunteer to analyze flow and minimum spanning tree algos
+;;       from loom and ensure correctness for graphs with parallel edges.
 
 (declare find-path)
 
@@ -648,6 +651,10 @@ shortest-path has specific arities for the two most common combinations:
 
 ;; Some things from Loom that don't quite work as-is
 
+;; Loom's bipartite has a bug where it only calls successors to get neighbors,
+;; which doesn't work for directed edges.
+;; https://github.com/aysylu/loom/issues/118
+
 (defn bipartite-color
   "Attempts a two-coloring of graph g. When successful, returns a map of
   nodes to colors (1 or 0). Otherwise, returns nil."
@@ -692,41 +699,3 @@ shortest-path has specific arities for the two most common combinations:
          [s1 (conj s2 node)]))
      [#{} #{}]
      coloring)))
-
-(defn- neighbor-colors
-  "Given a putative coloring of a graph, returns the colors of all the
-  neighbors of a given node."
-  [g node coloring]
-  (let [neighbors (uber/neighbors g node)]
-    (into #{} (keep #(get coloring %)) neighbors)))
-
-(defn coloring?
-  "Returns true if a map of nodes to colors is a proper coloring of a graph."
-  [g coloring]
-  (letfn [(different-colors? [node]
-            (not (contains? (neighbor-colors g node coloring)
-                            (coloring node))))]
-    (and (every? different-colors? (uber/nodes g))
-         (every? (complement nil?) (map #(get coloring %)
-                                        (uber/nodes g))))))
-
-(defn greedy-coloring
-  "Greedily color the vertices of a graph using the first-fit heuristic.
-  Returns a map of nodes to colors (0, 1, ...)."
-  [g]
-  (loop [node-seq (bf-traverse g)
-         coloring {}
-         colors #{}]
-    (if (empty? node-seq)
-      coloring
-      (let [node (first node-seq)
-            possible-colors (clojure.set/difference colors
-                                                    (neighbor-colors g
-                                                                     node
-                                                                     coloring))
-            node-color (if (empty? possible-colors)
-                         (count colors)
-                         (apply min possible-colors))]
-        (recur (rest node-seq)
-               (conj coloring [node node-color])
-               (conj colors node-color))))))
