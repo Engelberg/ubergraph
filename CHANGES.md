@@ -1,5 +1,13 @@
 # Ubergraph Change Log
 
+## 0.7.1
+
+### Enhancements
+
+* Added `neighbors` function which returns a sequence of distinct successors and predecessors of a node.
+* Workaround for bug in Loom for bipartate algorithms
+* Imported loom algorithms for bf-traverse, coloring?, greedy-coloring, degeneracy-ordering, maximal-cliques.
+
 ## 0.7.0
 
 ### Bugfixes
