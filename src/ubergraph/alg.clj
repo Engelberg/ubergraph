@@ -4,6 +4,8 @@
             [ubergraph.protocols :as prots]
             [potemkin :refer [import-vars]]
             [clojure.core.reducers :as r]
+            [loom.graph :as lg]
+            [loom.attr :as la]
             loom.alg)
   (:import java.util.PriorityQueue java.util.HashMap java.util.LinkedList java.util.HashSet
            java.util.Collections))
@@ -92,23 +94,28 @@
 
 (def ^:private no-goal (with-meta #{} {:no-goal true})) ; Used to search all possibilities
 
+(defn- edge-attrs "Figure out edge attributes if no graph specified"
+  [edge]
+  (cond (vector? edge) (nth edge 2)
+        (meta edge) (uber/attrs (meta edge) edge)
+        :else {}))
+
 (defn pprint-path 
   "Prints a path's edges along with the edges' attribute maps. 
-(pprint-path g p) will print the attribute maps currently stored in graph g for each edge in p.
-(pprint-path p) will print the attribute maps associated with each edge in p at the time the path was generated."   
+  (pprint-path g p) will print the attribute maps currently stored in graph g for each edge in p.
+  (pprint-path p) will print the attribute maps associated with each edge in p at the time the path was generated."   
   ([p]
-    (println "Total Cost:" (cost-of-path p))
-    (doseq [edge (edges-in-path p)]      
-      (println (uber/src edge) "->" (uber/dest edge)
-               (when (meta edge)
-                 (let [a (uber/attrs (meta edge) edge)]
-                   (if (seq a) a ""))))))
+   (println "Total Cost:" (cost-of-path p))
+   (doseq [edge (edges-in-path p)]      
+     (println (uber/src edge) "->" (uber/dest edge)
+              (let [a (edge-attrs edge)]
+                (if (seq a) a "")))))
   ([g p]
-    (println "Total Cost:" (cost-of-path p))
-    (doseq [edge (edges-in-path p)]      
-      (println (uber/src edge) "->" (uber/dest edge)
-               (let [a (uber/attrs g edge)]
-                 (if (seq a) a ""))))))
+   (println "Total Cost:" (cost-of-path p))
+   (doseq [edge (edges-in-path p)]      
+     (println (uber/src edge) "->" (uber/dest edge)
+              (let [a (uber/attrs g edge)]
+                (if (seq a) a ""))))))
   
 
 (defn- find-path
@@ -357,106 +364,154 @@ from one of the starting nodes to a node that satisfies the goal? predicate."
 (declare bellman-ford)
 
 (def ^:dynamic ^{:doc "Bind this dynamic variable to false if you prefer for shortest-path to throw an error, if negative cost edge is found."}
-      *auto-bellman-ford* true) 
+  *auto-bellman-ford* true) 
+
+(defn- out-edges-fn->graph
+  "Implements the protocols necessary to do a search"
+  [out-edges-fn]
+  (reify
+    lg/Graph
+    (has-node? [g node] true)
+    (out-edges [g node] (for [{:keys [dest] :as edge} (out-edges-fn node)]
+                          [node dest (dissoc edge :dest)]))
+    la/AttrGraph
+    (attrs [g edge]
+      (let [attrs (nth edge 2)]
+        (cond (map? attrs) attrs
+              (number? attrs) {:weight attrs}
+              :else {:weight 1})))
+    (attr [g edge k]
+      (get (la/attrs g edge) k))))
 
 (defn shortest-path 
-  "Finds the shortest path in graph g. You must specify a start node or a collection
-of start nodes from which to begin the search, however specifying an end node
-is optional. If an end node condition is specified, this function will return an 
-implementation of the IPath protocol, representing the shortest path. Otherwise, 
-it will search out as far as it can go, and return an implementation of the 
-IAllPathsFromSource protocol, which contains all the data needed to quickly find
-the shortest path to a given destination (using IAllPathsFromSource's `path-to` 
-protocol function).
+  "Finds the shortest path in g, where g is either an ubergraph or a
+  successors function that implies a graph. A successors function 
+  takes the form: (fn [node] [{:dest successor1, ...} {:dest successor2, ...} ...])
 
-If :traverse is set to true, then the function will instead return a lazy sequence
-of the shortest paths from the start node(s) to each node in the graph in the order
-the nodes are encountered by the search process.
+  You must specify a start node or a collection
+  of start nodes from which to begin the search, however specifying an end node
+  is optional. If an end node condition is specified, this function will return an 
+  implementation of the IPath protocol, representing the shortest path. Otherwise, 
+  it will search out as far as it can go, and return an implementation of the 
+  IAllPathsFromSource protocol, which contains all the data needed to quickly find
+  the shortest path to a given destination (using IAllPathsFromSource's `path-to` 
+  protocol function).
 
-Takes a search-specification map which must contain:
-Either :start-node (single node) or :start-nodes (collection)
+  If :traverse is set to true, then the function will instead return a lazy sequence
+  of the shortest paths from the start node(s) to each node in the graph in the order
+  the nodes are encountered by the search process.
 
-Map may contain the following entries:
-Either :end-node (single node) or :end-nodes (collection) or :end-node? (predicate function) 
-:cost-fn - A function that takes an edge as an input and returns a cost 
+  Takes a search-specification map which must contain:
+  Either :start-node (single node) or :start-nodes (collection)
+
+  Map may contain the following entries:
+  Either :end-node (single node) or :end-nodes (collection) or :end-node? (predicate function) 
+  :cost-fn - A function that takes an edge as an input and returns a cost 
           (defaults to every edge having a cost of 1, i.e., breadth-first search if no cost-fn given)
-:cost-attr - Alternatively, can specify an edge attribute to use as the cost
-:heuristic-fn - A function that takes a node as an input and returns a
+  :cost-attr - Alternatively, can specify an edge attribute to use as the cost
+  :heuristic-fn - A function that takes a node as an input and returns a
           lower-bound on the distance to a goal node, used to guide the search
           and make it more efficient.
-:node-filter - A predicate function that takes a node and returns true or false.
+  :node-filter - A predicate function that takes a node and returns true or false.
           If specified, only nodes that pass this node-filter test will be considered in the search.
-:edge-filter - A predicate function that takes an edge and returns true or false.
+  :edge-filter - A predicate function that takes an edge and returns true or false.
           If specified, only edges that pass this edge-filter test will be considered in the search.
 
-Map may contain the following additional entries if a traversal sequence is desired:
-:traverse true - Changes output to be a sequence of paths in order encountered.
-:min-cost - Filters traversal sequence, only applies if :traverse is set to true
-:max-cost - Filters traversal sequence, only applies if :traverse is set to true
+  Map may contain the following additional entries if a traversal sequence is desired:
+  :traverse true - Changes output to be a sequence of paths in order encountered.
+  :min-cost - Filters traversal sequence, only applies if :traverse is set to true
+  :max-cost - Filters traversal sequence, only applies if :traverse is set to true
 
 
-shortest-path has specific arities for the two most common combinations:
-(shortest-path g start-node end-node)
-(shortest-path g start-node end-node cost-attr)
-"
+  shortest-path has specific arities for the two most common combinations:
+  (shortest-path g start-node end-node)
+  (shortest-path g start-node end-node cost-attr)
+  "
   ([g start-node end-node] (shortest-path g {:start-node start-node, :end-node end-node}))
   ([g start-node end-node cost-attr] (shortest-path g {:start-node start-node, :end-node end-node, :cost-attr cost-attr}))
   ([g search-specification]
-    (assert (map? search-specification) "Second input must be a map, see docstring for options")
-    (assert (not (and (get search-specification :start-node)
-                      (get search-specification :start-nodes)))
-            "Can't specify both :start-node and :start-nodes")
-    (assert (<= 2 (count (filter nil? (map search-specification [:end-node :end-nodes :end-node?]))))
-            "Pick only one of :end-node, :end-nodes, or :end-node?")
-    (assert (not (and (get search-specification :cost-fn) 
-                      (get search-specification :cost-attr))) 
-            "Can't specify both a :cost-fn and a :cost-attr")
-    (let [cost-attr (get search-specification :cost-attr)
-          cost-fn (if cost-attr
-                    #(uber/attr g % cost-attr)
-                    (get search-specification :cost-fn))
-          cost-fn (when cost-fn
-                    (fn [edge]
-                      (let [cost (cost-fn edge)]
-                        (if (neg? cost)
-                          (throw (IllegalStateException. "Negative edge, retry with Bellman-Ford alg"))
-                          cost))))
-          heuristic-fn (get search-specification :heuristic-fn)
-          node-filter (get search-specification :node-filter (constantly true))
-          edge-filter (get search-specification :edge-filter (constantly true))
-          starting-nodes (if-let [start-node (:start-node search-specification)]
-                           [start-node]
-                           (:start-nodes search-specification))
-          traversal? (:traverse search-specification)
-          goal? (cond
-                  (:end-node search-specification) #{(:end-node search-specification)}
-                  (:end-nodes search-specification) (set (:end-nodes search-specification))
-                  (:end-node? search-specification) (:end-node? search-specification)
-                  :else no-goal)
-          min-cost (get search-specification :min-cost java.lang.Double/NEGATIVE_INFINITY)
-          max-cost (get search-specification :max-cost java.lang.Double/POSITIVE_INFINITY)]
-      (assert (<= min-cost max-cost) ":min-cost must be less-than-or-equal to :max-cost")
-      (assert (or (not (or (:min-cost search-specification) (:max-cost search-specification)))
-                  traversal?)
-              ":min-cost and :max-cost have no effect unless you set :traverse to true")
+   (assert (map? search-specification) "Second input must be a map, see docstring for options")
+   (assert (not (and (get search-specification :start-node)
+                     (get search-specification :start-nodes)))
+           "Can't specify both :start-node and :start-nodes")
+   (assert (<= 2 (count (filter nil? (map search-specification [:end-node :end-nodes :end-node?]))))
+           "Pick only one of :end-node, :end-nodes, or :end-node?")
+   (assert (not (and (get search-specification :cost-fn) 
+                     (get search-specification :cost-attr))) 
+           "Can't specify both a :cost-fn and a :cost-attr")
+   (assert (or (uber/ubergraph? g) (fn? g))
+           "g must either be an ubergraph or a successors function")
+   (let [g (if (uber/ubergraph? g) g
+               (out-edges-fn->graph g)) 
+         cost-attr (get search-specification :cost-attr)
+         cost-fn (if cost-attr
+                   #(uber/attr g % cost-attr)
+                   (get search-specification :cost-fn))
+         cost-fn (when cost-fn
+                   (fn [edge]
+                     (let [cost (cost-fn edge)]
+                       (if (neg? cost)
+                         (throw (IllegalStateException. "Negative edge, retry with Bellman-Ford alg"))
+                         cost))))
+         heuristic-fn (get search-specification :heuristic-fn)
+         node-filter (get search-specification :node-filter (constantly true))
+         edge-filter (get search-specification :edge-filter (constantly true))
+         starting-nodes (if-let [start-node (:start-node search-specification)]
+                          [start-node]
+                          (:start-nodes search-specification))
+         traversal? (:traverse search-specification)
+         goal? (cond
+                 (:end-node search-specification) #{(:end-node search-specification)}
+                 (:end-nodes search-specification) (set (:end-nodes search-specification))
+                 (:end-node? search-specification) (:end-node? search-specification)
+                 :else no-goal)
+         min-cost (get search-specification :min-cost java.lang.Double/NEGATIVE_INFINITY)
+         max-cost (get search-specification :max-cost java.lang.Double/POSITIVE_INFINITY)]
+     (assert (<= min-cost max-cost) ":min-cost must be less-than-or-equal to :max-cost")
+     (assert (or (not (or (:min-cost search-specification) (:max-cost search-specification)))
+                 traversal?)
+             ":min-cost and :max-cost have no effect unless you set :traverse to true")
 
-      (try
-        (cond
-          (and (nil? cost-fn) (nil? cost-attr) (nil? heuristic-fn))
-          (least-edges-path g starting-nodes goal? node-filter edge-filter traversal? min-cost max-cost),
-        
-          heuristic-fn
-          (least-cost-path-with-heuristic
-            g starting-nodes goal? (if cost-fn cost-fn (constantly 1)) heuristic-fn node-filter edge-filter traversal? min-cost max-cost),
-        
-          :else
-          (least-cost-path g starting-nodes goal? cost-fn node-filter edge-filter traversal? min-cost max-cost))
-        (catch IllegalStateException e 
-          (if *auto-bellman-ford*
-            (bellman-ford g search-specification)
-            (throw (IllegalStateException. "Found edge with negative cost. Use bellman-ford."))))))))
-  
+     (try
+       (cond
+         (and (nil? cost-fn) (nil? cost-attr) (nil? heuristic-fn))
+         (least-edges-path g starting-nodes goal? node-filter edge-filter traversal? min-cost max-cost),
+         
+         heuristic-fn
+         (least-cost-path-with-heuristic
+          g starting-nodes goal? (if cost-fn cost-fn (constantly 1)) heuristic-fn node-filter edge-filter traversal? min-cost max-cost),
+         
+         :else
+         (least-cost-path g starting-nodes goal? cost-fn node-filter edge-filter traversal? min-cost max-cost))
+       (catch IllegalStateException e 
+         (if *auto-bellman-ford*
+           (bellman-ford g search-specification)
+           (throw (IllegalStateException. "Found edge with negative cost. Use bellman-ford."))))))))
 
+(defn paths->graph "Takes output of shortest-path and returns the graph of directed edges implied by the search process"
+  [paths]
+  (cond
+    (satisfies? ubergraph.protocols/IAllPathsFromSource paths)
+    (let [backlinks (:backlinks paths)]
+      (apply uber/digraph
+             (for [[node edge] (seq backlinks)
+                   init [[node {:cost-of-path (cost-of-path (path-to paths node))}]
+                         ^:edge [(get backlinks node) node (edge-attrs edge)]]]
+               init)))
+
+    (satisfies? ubergraph.protocols/IPath paths)
+    (apply uber/digraph [(end-of-path paths) {:cost-of-path (cost-of-path paths)}]
+           (for [edge (edges-in-path paths)]
+             ^:edge [(uber/src edge) (uber/dest edge) (edge-attrs edge)]))
+
+    :else
+    (apply uber/digraph
+           (for [path paths
+                 :let [edge (first (edges-in-path paths))]
+                 init [[(end-of-path paths) {:cost-of-path (cost-of-path path)}]
+                       ^:edge [(uber/src edge) (uber/dest edge) (edge-attrs edge)]]]
+             init))))
+                             
 ;; Algorithms similar to those in Loom, adapted for Ubergraphs
 
 (defn loners
