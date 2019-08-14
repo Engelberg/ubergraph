@@ -464,10 +464,8 @@ from one of the starting nodes to a node that satisfies the goal? predicate."
    (assert (not (and (get search-specification :cost-fn) 
                      (get search-specification :cost-attr))) 
            "Can't specify both a :cost-fn and a :cost-attr")
-   (assert (or (uber/ubergraph? g) (fn? g))
-           "g must either be an ubergraph or a successors function")
-   (let [g (if (uber/ubergraph? g) g
-               (out-edges-fn->graph g)) 
+   (let [g (if-not (fn? g) g
+                   (out-edges-fn->graph g))
          cost-attr (get search-specification :cost-attr)
          cost-fn (if cost-attr
                    #(uber/attr g % cost-attr)
