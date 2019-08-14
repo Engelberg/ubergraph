@@ -22,6 +22,7 @@
   cost-of-path
   start-of-path
   end-of-path
+  last-edge-of-path
   path-to]
  ;;   path-between  Reserved for future use in all-paths algorithms
  
@@ -49,7 +50,7 @@
 
 (declare find-path)
 
-(defrecord Path [list-of-edges cost end]
+(defrecord Path [list-of-edges cost end backlinks]
   ubergraph.protocols/IPath
   (edges-in-path [this] @list-of-edges)
   (nodes-in-path [this] (when (seq @list-of-edges)
@@ -57,7 +58,9 @@
                                 (map uber/dest @list-of-edges))))
   (cost-of-path [this] cost)
   (end-of-path [this] end)
-  (start-of-path [this] (first (nodes-in-path this))))
+  (start-of-path [this] (first (nodes-in-path this)))
+  (last-edge-of-path [this] (let [edge (get backlinks end)]
+                              (when (not= edge ()) edge))))
 
 (defrecord AllPathsFromSource [backlinks least-costs]
   ubergraph.protocols/IAllPathsFromSource
@@ -65,14 +68,16 @@
     (when (get backlinks dest)
       (->Path (delay (find-path dest backlinks))
               (get least-costs dest)
-              dest))))
+              dest
+              backlinks))))
 
 (defrecord AllBFSPathsFromSource [backlinks depths]
   ubergraph.protocols/IAllPathsFromSource
   (path-to [this dest]
     (->Path (delay (find-path dest backlinks))
             (get depths dest)
-            dest)))
+            dest
+            backlinks)))
             
 (alter-meta! #'->Path assoc :no-doc true)
 (alter-meta! #'->AllPathsFromSource assoc :no-doc true)
@@ -134,7 +139,9 @@
     (if-let [node (.poll queue)]
       (let [depth (.get depths node)]        
         (if (goal? node)
-          (->Path (delay (find-path node (Collections/unmodifiableMap backlinks))) depth node)
+          (let [backlinks-map (Collections/unmodifiableMap backlinks)]
+            (->Path (delay (find-path node backlinks-map)) depth node
+                    backlinks-map))
           (do
             (doseq [edge (uber/out-edges g node)
                     :when (edge-filter edge)]
@@ -155,25 +162,28 @@
   [g goal? ^LinkedList queue ^HashMap backlinks ^HashMap depths node-filter edge-filter min-cost max-cost]
   (let [explore-node (fn [node depth]
                        (doseq [edge (uber/out-edges g node)
-                                    :when (edge-filter edge)]
-                              (let [dst (uber/dest edge)
-                                    inc-depth (inc depth)]
-                                (when (and (node-filter node) (not (.get backlinks dst)))
-                                  (.add queue dst)
-                                  (.put depths dst inc-depth)
-                                  (.put backlinks dst edge)))))
+                               :when (edge-filter edge)]
+                         (let [dst (uber/dest edge)
+                               inc-depth (inc depth)]
+                           (when (and (node-filter node) (not (.get backlinks dst)))
+                             (.add queue dst)
+                             (.put depths dst inc-depth)
+                             (.put backlinks dst edge)))))
         stepfn 
         (fn stepfn [] 
           (when-let [node (.poll queue)]
             (let [depth (.get depths node)]
               (if (<= min-cost depth max-cost)
-                (cons (->Path (delay (find-path node (Collections/unmodifiableMap backlinks))) depth node)
-                      (lazy-seq
-                        (if (goal? node)
-                          nil
-                          (do
-                            (explore-node node depth)
-                            (stepfn)))))
+                (cons
+                 (let [backlinks-map (Collections/unmodifiableMap backlinks)]
+                   (->Path (delay (find-path node backlinks-map)) depth node
+                           backlinks-map))
+                 (lazy-seq
+                  (if (goal? node)
+                    nil
+                    (do
+                      (explore-node node depth)
+                      (stepfn)))))
                 (if (goal? node)
                   nil
                   (do
@@ -206,7 +216,10 @@ using the fewest possible edges."
   (loop []
     (if-let [[cost-from-start-to-node node] (.poll queue)]
       (cond 
-        (goal? node) (->Path (delay (find-path node (Collections/unmodifiableMap backlinks))) (.get least-costs node) node)
+        (goal? node) (let [backlinks-map (Collections/unmodifiableMap backlinks)]
+                       (->Path (delay (find-path node backlinks-map))
+                               (.get least-costs node) node
+                               backlinks-map))
         (> cost-from-start-to-node (.get least-costs node)) (recur)
         :else
         (do (doseq [edge (uber/out-edges g node)
@@ -222,7 +235,7 @@ using the fewest possible edges."
                   (.add queue [cost-from-start-to-dst dst])
                   (.put least-costs dst cost-from-start-to-dst)
                   (.put backlinks dst edge))))
-          (recur)))  
+            (recur)))  
       (if (identical? no-goal goal?)
         (->AllPathsFromSource (Collections/unmodifiableMap backlinks)
                               (Collections/unmodifiableMap least-costs))
@@ -256,13 +269,20 @@ using the fewest possible edges."
                     (< max-cost cost-from-start-to-node))
                 (do (explore-node node cost-from-start-to-node) (recur)),
                 
-                (goal? node) [(->Path (delay (find-path node (Collections/unmodifiableMap backlinks))) (.get least-costs node) node)]
+                (goal? node)
+                [(let [backlinks-map (Collections/unmodifiableMap backlinks)]
+                   (->Path (delay (find-path node backlinks-map))
+                           (.get least-costs node) node
+                           backlinks-map))],
                 (> cost-from-start-to-node (.get least-costs node)) (recur)
                 :else
                 (cons
-                  (->Path (delay (find-path node (Collections/unmodifiableMap backlinks))) (.get least-costs node) node)
-                  (lazy-seq
-                    (do (explore-node node cost-from-start-to-node) (stepfn))))))))]
+                 (let [backlinks-map (Collections/unmodifiableMap backlinks)]
+                   (->Path (delay (find-path node backlinks-map))
+                           (.get least-costs node) node
+                           backlinks-map))
+                 (lazy-seq
+                  (do (explore-node node cost-from-start-to-node) (stepfn))))))))]
     (stepfn)))
 
 (defn- least-cost-path
@@ -287,7 +307,9 @@ from one of the starting nodes to a node that satisfies the goal? predicate."
   (loop []
     (if-let [[estimated-total-cost-through-node [cost-from-start-to-node node]] (.poll queue)]
       (cond
-        (goal? node) (->Path (delay (find-path node (Collections/unmodifiableMap backlinks))) (.get least-costs node) node)
+        (goal? node) (let [backlinks-map (Collections/unmodifiableMap backlinks)]
+                       (->Path (delay (find-path node backlinks-map))
+                               (.get least-costs node) node backlinks-map))
         (> cost-from-start-to-node (.get least-costs node)) (recur)
         :else
         (do (doseq [edge (uber/out-edges g node)
@@ -304,7 +326,7 @@ from one of the starting nodes to a node that satisfies the goal? predicate."
                                [cost-from-start-to-dst dst]])
                   (.put least-costs dst cost-from-start-to-dst)
                   (.put backlinks dst edge))))
-          (recur)))  
+            (recur)))  
       (if (identical? no-goal goal?)
         (->AllPathsFromSource (Collections/unmodifiableMap backlinks) (Collections/unmodifiableMap least-costs))
         nil))))
@@ -336,12 +358,15 @@ from one of the starting nodes to a node that satisfies the goal? predicate."
                   (< max-cost cost-from-start-to-node))
               (do (explore-node node cost-from-start-to-node) (recur)),
 
-              (goal? node) [(->Path (delay (find-path node (Collections/unmodifiableMap backlinks))) 
-                                    (.get least-costs node) node)]
+              (goal? node)
+              [(let [backlinks-map (Collections/unmodifiableMap backlinks)]
+                 (->Path (delay (find-path node backlinks-map)) 
+                         (.get least-costs node) node backlinks-map))]
               (> cost-from-start-to-node (.get least-costs node)) (recur)
               :else
-              (cons (->Path (delay (find-path node (Collections/unmodifiableMap backlinks)))
-                            (.get least-costs node) node)
+              (cons (let [backlinks-map (Collections/unmodifiableMap backlinks)]
+                      (->Path (delay (find-path node backlinks-map))
+                              (.get least-costs node) node backlinks-map))
                     (lazy-seq 
                      (do (explore-node node cost-from-start-to-node) (stepfn)))))))]
     (stepfn)))
@@ -495,8 +520,11 @@ from one of the starting nodes to a node that satisfies the goal? predicate."
     (let [backlinks (:backlinks paths)]
       (apply uber/digraph
              (for [[node edge] (seq backlinks)
-                   init [[node {:cost-of-path (cost-of-path (path-to paths node))}]
-                         ^:edge [(get backlinks node) node (edge-attrs edge)]]]
+                   init (if (= edge ())
+                          [[node {:cost-of-path (cost-of-path (path-to paths node))}]]
+                          [[node {:cost-of-path (cost-of-path (path-to paths node))}]
+                           ^:edge [(uber/src (get backlinks node))
+                                   node (edge-attrs edge)]])]
                init)))
 
     (satisfies? ubergraph.protocols/IPath paths)
@@ -507,9 +535,11 @@ from one of the starting nodes to a node that satisfies the goal? predicate."
     :else
     (apply uber/digraph
            (for [path paths
-                 :let [edge (first (edges-in-path paths))]
-                 init [[(end-of-path paths) {:cost-of-path (cost-of-path path)}]
-                       ^:edge [(uber/src edge) (uber/dest edge) (edge-attrs edge)]]]
+                 :let [edge (last-edge-of-path path)]
+                 init (if-not edge
+                        [[(end-of-path path) {:cost-of-path (cost-of-path path)}]]
+                        [[(end-of-path path) {:cost-of-path (cost-of-path path)}]
+                         ^:edge [(uber/src edge) (uber/dest edge) (edge-attrs edge)]])]
              init))))
                              
 ;; Algorithms similar to those in Loom, adapted for Ubergraphs
