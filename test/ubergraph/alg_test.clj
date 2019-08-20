@@ -193,38 +193,160 @@
 ;can vary from one run to the next 
 (deftest test-airports    
   (are [actual expected] (= expected actual)
-       (alg/cost-of-path (alg/shortest-path airports {:start-node :Artemis, :end-node :Egglesberg}))
-       2,  
-       (alg/cost-of-path (alg/shortest-path airports :Coulton :Egglesberg :distance))       
-       115
-       (alg/cost-of-path (alg/shortest-path airports :Artemis :Egglesberg :cost))
-       210
-       (alg/cost-of-path (alg/shortest-path airports {:start-node :Artemis, :end-node :Egglesberg, 
-                                                      :cost-fn (fn [e] (+ 100000 (uber/attr airports e :distance)))}))
-       200090
-       (alg/cost-of-path (alg/path-to (alg/shortest-path airports {:start-node :Coulton, :cost-attr :distance}) :Artemis))
-       110
-       (frequencies (map alg/cost-of-path (alg/shortest-path airports {:start-node :Artemis, :traverse true})))
-       {0 1, 1 3, 2 1}
-       (set (map alg/end-of-path (alg/shortest-path airports {:start-node :Egglesberg, :traverse true, :min-cost 2, :max-cost 2})))
-       #{:Dentana :Artemis}
-       (alg/cost-of-path (alg/shortest-path airports {:start-node :Dentana, :end-node :Egglesberg,
-                                               :edge-filter (fn [e] (not= :AirLux (uber/attr airports e :airline)))}))
-       3
-       (alg/cost-of-path (alg/shortest-path airports {:start-node :Egglesberg, :end-node :Artemis,
-                                                      :node-filter (fn [n] (<= 3000 (uber/attr airports n :population))),
-                                                      :cost-attr :cost}))
-       315
-       (alg/cost-of-path (alg/shortest-path airports {:start-node :Coulton, 
-                                                      :end-node? (fn [n] (> 3000 (uber/attr airports n :population))),
-                                                      :cost-attr :cost}))
-       80
-        (alg/cost-of-path (alg/shortest-path airports {:start-nodes [:Artemis :Balela], :end-node :Dentana, :cost-attr :cost}))
-        130
-        (airport-edges (alg/shortest-path airports {:start-node :Dentana, :end-nodes [:Artemis :Balela], :cost-attr :cost}))
-        '([:Dentana :Artemis :CheapAir])
-        
-        airports airportsv2
-       ))
+    (alg/cost-of-path (alg/shortest-path airports {:start-node :Artemis, :end-node :Egglesberg}))
+    2,  
+    (alg/cost-of-path (alg/shortest-path airports :Coulton :Egglesberg :distance))       
+    115
+    (alg/cost-of-path (alg/shortest-path airports :Artemis :Egglesberg :cost))
+    210
+    (alg/cost-of-path (alg/shortest-path airports {:start-node :Artemis, :end-node :Egglesberg, 
+                                                   :cost-fn (fn [e] (+ 100000 (uber/attr airports e :distance)))}))
+    200090
+    (alg/cost-of-path (alg/path-to (alg/shortest-path airports {:start-node :Coulton, :cost-attr :distance}) :Artemis))
+    110
+    (frequencies (map alg/cost-of-path (alg/shortest-path airports {:start-node :Artemis, :traverse true})))
+    {0 1, 1 3, 2 1}
+    (set (map alg/end-of-path (alg/shortest-path airports {:start-node :Egglesberg, :traverse true, :min-cost 2, :max-cost 2})))
+    #{:Dentana :Artemis}
+    (alg/cost-of-path (alg/shortest-path airports {:start-node :Dentana, :end-node :Egglesberg,
+                                                   :edge-filter (fn [e] (not= :AirLux (uber/attr airports e :airline)))}))
+    3
+    (alg/cost-of-path (alg/shortest-path airports {:start-node :Egglesberg, :end-node :Artemis,
+                                                   :node-filter (fn [n] (<= 3000 (uber/attr airports n :population))),
+                                                   :cost-attr :cost}))
+    315
+    (alg/cost-of-path (alg/shortest-path airports {:start-node :Coulton, 
+                                                   :end-node? (fn [n] (> 3000 (uber/attr airports n :population))),
+                                                   :cost-attr :cost}))
+    80
+    (alg/cost-of-path (alg/shortest-path airports {:start-nodes [:Artemis :Balela], :end-node :Dentana, :cost-attr :cost}))
+    130
+    (airport-edges (alg/shortest-path airports {:start-node :Dentana, :end-nodes [:Artemis :Balela], :cost-attr :cost}))
+    '([:Dentana :Artemis :CheapAir])
+    
+    airports airportsv2
+    ))
 
-
+(deftest test-search-driven-graph
+  (are [actual expected] (= expected actual)
+    (alg/edges-in-path
+     (alg/shortest-path
+      (fn [n] [{:dest (* n 2) :label :double} {:dest (inc n) :label :increment}])
+      1 19))
+    [[1 2 {:label :double}]
+     [2 4 {:label :double}]
+     [4 8 {:label :double}]
+     [8 9 {:label :increment}]
+     [9 18 {:label :double}]
+     [18 19 {:label :increment}]]
+    (alg/edges-in-path
+     (alg/shortest-path
+      (fn [n] [{:dest (* n 2) :label :double, :weight 3} {:dest (inc n) :label :increment, :weight 1}])
+      {:start-node 1, :end-node 19, :cost-attr :weight}))
+    [[1 2 {:label :increment, :weight 1}]
+     [2 3 {:label :increment, :weight 1}]
+     [3 4 {:label :increment, :weight 1}]
+     [4 8 {:label :double, :weight 3}]
+     [8 9 {:label :increment, :weight 1}]
+     [9 18 {:label :double, :weight 3}]
+     [18 19 {:label :increment, :weight 1}]]
+    (alg/paths->graph
+     (alg/shortest-path
+      (fn [n] [{:dest (* n 2) :label :double, :weight 3}
+               {:dest (inc n) :label :increment, :weight 1}])
+      {:start-node 1, :end-node 19, :cost-attr :weight}))
+    
+    (uber/edn->ubergraph
+     {:allow-parallel? false,
+      :undirected? false,
+      :nodes [[19 {:cost-of-path 11}]
+              [1 {}]
+              [2 {}]
+              [3 {}]
+              [4 {}]
+              [8 {}]
+              [9 {}]
+              [18 {}]],
+      :directed-edges [[1 2 {:label :increment, :weight 1}]
+                       [2 3 {:label :increment, :weight 1}]
+                       [3 4 {:label :increment, :weight 1}]
+                       [4 8 {:label :double, :weight 3}]
+                       [8 9 {:label :increment, :weight 1}]
+                       [9 18 {:label :double, :weight 3}]
+                       [18 19 {:label :increment, :weight 1}]],
+      :undirected-edges []})
+    (alg/paths->graph
+     (alg/shortest-path
+      (fn [n] [{:dest (* n 2) :label :double, :weight 3}
+               {:dest (inc n) :label :increment, :weight 1}])
+      {:start-node 1, :end-node 19, :cost-attr :weight, :traverse true})),
+    
+    (uber/edn->ubergraph
+     {:allow-parallel? false,
+      :undirected? false,
+      :nodes [[7 {:cost-of-path 6}]
+              [20 {:cost-of-path 10}]
+              [1 {:cost-of-path 0}]
+              [4 {:cost-of-path 3}]
+              [15 {:cost-of-path 10}]
+              [13 {:cost-of-path 9}]
+              [6 {:cost-of-path 5}]
+              [17 {:cost-of-path 10}]
+              [3 {:cost-of-path 2}]
+              [12 {:cost-of-path 8}]
+              [2 {:cost-of-path 1}]
+              [19 {:cost-of-path 11}]
+              [11 {:cost-of-path 8}]
+              [9 {:cost-of-path 7}]
+              [5 {:cost-of-path 4}]
+              [14 {:cost-of-path 9}]
+              [16 {:cost-of-path 9}]
+              [10 {:cost-of-path 7}]
+              [18 {:cost-of-path 10}]
+              [8 {:cost-of-path 6}]],
+      :directed-edges [[7 14 {:label :double, :weight 3}]
+                       [1 2 {:label :increment, :weight 1}]
+                       [4 5 {:label :increment, :weight 1}]
+                       [4 8 {:label :double, :weight 3}]
+                       [6 7 {:label :increment, :weight 1}]
+                       [6 12 {:label :double, :weight 3}]
+                       [3 4 {:label :increment, :weight 1}]
+                       [3 6 {:label :double, :weight 3}]
+                       [12 13 {:label :increment, :weight 1}]
+                       [2 3 {:label :increment, :weight 1}]
+                       [9 18 {:label :double, :weight 3}]
+                       [5 10 {:label :double, :weight 3}]
+                       [14 15 {:label :increment, :weight 1}]
+                       [16 17 {:label :increment, :weight 1}]
+                       [10 11 {:label :increment, :weight 1}]
+                       [10 20 {:label :double, :weight 3}]
+                       [18 19 {:label :increment, :weight 1}]
+                       [8 9 {:label :increment, :weight 1}]
+                       [8 16 {:label :double, :weight 3}]],
+      :undirected-edges []})
+    (-> (alg/shortest-path (fn [n] [{:dest (* n 2) :label :double} {:dest (inc n) :label :increment}]) {:start-node 1, :node-filter #(< % 12)}) alg/paths->graph)
+    (uber/edn->ubergraph
+     {:allow-parallel? false,
+      :undirected? false,
+      :nodes [[7 {:cost-of-path 4}]
+              [1 {:cost-of-path 0}]
+              [4 {:cost-of-path 2}]
+              [6 {:cost-of-path 3}]
+              [3 {:cost-of-path 2}]
+              [2 {:cost-of-path 1}]
+              [11 {:cost-of-path 5}]
+              [9 {:cost-of-path 4}]
+              [5 {:cost-of-path 3}]
+              [10 {:cost-of-path 4}]
+              [8 {:cost-of-path 3}]],
+      :directed-edges [[1 2 {:label :double}]
+                       [4 5 {:label :increment}]
+                       [4 8 {:label :double}]
+                       [6 7 {:label :increment}]
+                       [3 6 {:label :double}]
+                       [2 3 {:label :increment}]
+                       [2 4 {:label :double}]
+                       [5 10 {:label :double}]
+                       [10 11 {:label :increment}]
+                       [8 9 {:label :increment}]],
+      :undirected-edges []})))

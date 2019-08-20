@@ -1,5 +1,16 @@
 # Ubergraph Change Log
 
+## 0.8.0
+
+### Bugfixes
+
+* :node-filter in breadth first search was filtering after nodes were reached, not before.
+
+### Enhancements
+
+* shortest-path can now take a transition function of the form (fn [node] [{:dest successor1, ...} {:dest successor2, ...} ...])
+* paths->graph converts the output from shortest-path and returns a graph
+
 ## 0.7.2
 
 ### Bugfixes
