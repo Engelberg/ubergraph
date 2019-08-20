@@ -10,6 +10,7 @@
 
 * shortest-path can now take a transition function of the form (fn [node] [{:dest successor1, ...} {:dest successor2, ...} ...])
 * paths->graph converts the output from shortest-path and returns a graph
+* speed improvements by converting all nested map access to specter library
 
 ## 0.7.2
 
