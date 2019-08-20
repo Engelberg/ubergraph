@@ -1,6 +1,6 @@
 # Ubergraph
 
-Ubergraph is a versatile, general-purpose graph data structure for Clojure.  It is designed to complement and extend [Loom](https://github.com/aysylu/loom), a popular Clojure collection of graph protocols and algorithms.
+Ubergraph is a versatile, general-purpose graph data structure for Clojure.  It is designed to be compatible with [Loom](https://github.com/aysylu/loom), another popular Clojure collection of graph protocols and algorithms, but it does not require knowledge of Loom to use.
 
 ## Features
 
@@ -10,15 +10,15 @@ Ubergraph is a versatile, general-purpose graph data structure for Clojure.  It 
 
 Ubergraph is a great choice for people who:
 
-* Want to use Loom, but don't want to think about which specific Loom graph implementation to use.  (Hmmm, do I need directed edges or undirected edges?  Do I need weights or attributes for this project?  I'm not sure yet, so I'll just use ubergraph because it can do it all.)
-* Need graph capabilities beyond what Loom provides.
+* Don't want to think about which specific graph implementation to use.  (Hmmm, do I need directed edges or undirected edges?  Do I need weights or attributes for this project?  I'm not sure yet, so I'll just use ubergraph because it can do it all.)
+* Need advanced graph capabilities.
 * Are implementing algorithms for Loom, and want to test the algorithm against an alternative graph implementation to be certain you've properly programmed the algorithm against the necessary abstractions, rather than Loom's concrete representations.
 
 ## Quickstart
 
 Add the following line to your leiningen dependencies:
 
-	[ubergraph "0.7.0"]
+	[ubergraph "0.7.2"]
 
 Require ubergraph in your namespace header:
 
@@ -297,7 +297,7 @@ There are two common uses for these convenience functions:
 (add-edges* g1 (map (partial edge-with-attrs g2) (edges g2)))
 ```
 
-Note that the output of `node-with-attrs` and `edge-with-attrs` is annotated with ^:node or ^:edge metadata so that it can be safely and unambiguously recognized as a node or edge description if passed to the `build-graph` function.
+Note that the output of `node-with-attrs` and `edge-with-attrs` is annotated with metadata so it can be safely and unambiguously recognized as a node or edge description if passed to the `build-graph` function.
 
 #### Edges
 
@@ -436,7 +436,11 @@ So let's start off with a simple question: What is the trip with the fewest hops
 
 ```clojure
 => (alg/shortest-path airports {:start-node :Artemis, :end-node :Egglesberg})
-#ubergraph.alg.Path{:list-of-edges #<Delay@328ab9ec: :pending>, :cost 2, :end :Egglesberg}
+#ubergraph.alg.Path{:list-of-edges #<Delay@328ab9ec: :pending>, :cost 2, :end :Egglesberg,
+                    :last-edge #ubergraph.core.UndirectedEdge{:id #uuid "827f7769-db20-45c4-b3d9-272f47e87bcc",
+                                                              :src :Balela,
+                                                              :dest :Egglesberg,
+                                                              :mirror? false}}
 ```
 
 Hmm, that doesn't seem overly useful.  But remember, paths implement a protocol that lets us get at the details of the path:
@@ -455,6 +459,11 @@ Hmm, that doesn't seem overly useful.  But remember, paths implement a protocol 
 :Egglesberg
 => (alg/cost-of-path (alg/shortest-path airports {:start-node :Artemis, :end-node :Egglesberg}))
 2
+=> (alg/last-edge-of-path (alg/shortest-path airports {:start-node :Artemis, :end-node :Egglesberg}))
+#ubergraph.core.UndirectedEdge{:id #uuid "827f7769-db20-45c4-b3d9-272f47e87bcc",
+                               :src :Balela,
+                               :dest :Egglesberg,
+                               :mirror? false}
 ```
 
 The edges don't directly store the attributes (they are stored in the graph, keyed by edge id).  A convenience function is provided to make it easy to see from a glance at the REPL which edges we're talking about:
@@ -543,11 +552,11 @@ Sometimes, you don't just want the final lookup table of paths, you want to see 
 
 ```clojure
 => (alg/shortest-path airports {:start-node :Artemis, :traverse true})
-(#ubergraph.alg.Path{:list-of-edges #<Delay@7d3b1918: :pending>, :cost 0, :end :Artemis}
-#ubergraph.alg.Path{:list-of-edges #<Delay@5462d913: :pending>, :cost 1, :end :Dentana}
-#ubergraph.alg.Path{:list-of-edges #<Delay@410fe1e3: :pending>, :cost 1, :end :Coulton}
-#ubergraph.alg.Path{:list-of-edges #<Delay@507f93c7: :pending>, :cost 1, :end :Balela}
-#ubergraph.alg.Path{:list-of-edges #<Delay@75a9a309: :pending>, :cost 2, :end :Egglesberg})
+(#ubergraph.alg.Path{:list-of-edges #<Delay@7d3b1918: :pending>, :cost 0, :end :Artemis, :last-edge ...}
+#ubergraph.alg.Path{:list-of-edges #<Delay@5462d913: :pending>, :cost 1, :end :Dentana, :last-edge ...}
+#ubergraph.alg.Path{:list-of-edges #<Delay@410fe1e3: :pending>, :cost 1, :end :Coulton, :last-edge ...}
+#ubergraph.alg.Path{:list-of-edges #<Delay@507f93c7: :pending>, :cost 1, :end :Balela, :last-edge ...}
+#ubergraph.alg.Path{:list-of-edges #<Delay@75a9a309: :pending>, :cost 2, :end :Egglesberg, :last-edge ...})
 ```
 
 We can place minimum and maximum cost constraints on the sequence of paths returned by the traversal.  So, for example, if we want to know all the cities who are (at best) two hops from Egglesberg:
@@ -562,7 +571,7 @@ We can place minimum and maximum cost constraints on the sequence of paths retur
 `shortest-path` allows you filter the edges and nodes.  What is the fewest hops from Dentana to Egglesberg avoiding the airline AirLux?
 
 ```clojure
-(alg/shortest-path airports 
+(alg/shortest-path airports
    {:start-node :Dentana, :end-node :Egglesberg,
     :edge-filter (fn [e] (not= :AirLux (uber/attr airports e :airline)))})
 ```
@@ -611,7 +620,7 @@ Clearly, a lower-bound on how far a word is from another word is the number of l
                  :when (not= l1 l2)]
              1)))
 
-=> (time (alg/nodes-in-path (alg/shortest-path wg 
+=> (time (alg/nodes-in-path (alg/shortest-path wg
                                {:start-node "amigo" :end-node "enter"
                                 :heuristic-fn #(word-edit-distance % "enter")})))
 "Elapsed time: 5.223978 msecs"
@@ -634,14 +643,128 @@ Last but not least, `shortest-path` can handle edges with negative costs.  If it
     [:b :d 7]
     [:b :t 3]
     [:d :t 10]))
-    
-=> (alg/shortest-path negative-weight-example  :s :b :weight)
-#ubergraph.alg.Path{:list-of-edges #<Delay@7a3ed5ab: :pending>, :cost 1, :end :b}
+
+=> (alg/shortest-path negative-weight-example :s :b :weight)
+#ubergraph.alg.Path{:list-of-edges #<Delay@7a3ed5ab: :pending>, :cost 1, :end :b, :last-edge ...}
 ```
 
 Note: If you call `shortest-path` on a graph with a negative-weight *cycle*, the function will return false.
 
 All of Ubergraph's algorithms, including the new `shortest-path`, should be backwards-comaptible with Loom's graphs.
+
+### Search-driven Graph Generation
+
+The above section discussed how to search for shortest paths within a graph. But sometimes you want to go the other way, and let a search process drive the construction of a graph. This comes up a lot in my own work: I'm solving a puzzle and I know the start state and an end state, and I know the rules for state transitions, but I have no idea how I'm going to get from the start state and end state. I want to search for a path from the start state to the end state, even though I don't yet know all the nodes of the graph.
+
+#### Lightweight search
+
+The docstring given in the previous section for `shortest-path` was slightly simplified. It actually begins as follows:
+
+```
+Finds the shortest path in g, where g is either an ubergraph or a
+transition function that implies a graph. A transition function
+takes the form: (fn [node] [{:dest successor1, ...} {:dest successor2, ...} ...])
+```
+
+So, you can do a search simply by passing in a function that tells you all the nodes you can reach from a given node. The way you do this is with a function that takes a node as an input and returns a sequence of maps as the output. You can think of this function as a way of specifying all the edges coming out of the input node. Each map must have a :dest key, which tells you the destination node of the edge. Any other key-value pairs in the map will be attached to the edge as attributes (this allows you to specify weights or other useful information to guide the search or label the results).
+
+As an example, let's consider a graph where the nodes are all the natural numbers, and there are two types of edges: incrementing a number by one or doubling it. As you can see, this is an *infinite* graph, and therefore, can't be expressed as an ubergraph. But we can still do a meaningful search on the transition function:
+
+```clojure
+=> (-> (alg/shortest-path (fn [n] [{:dest (* n 2) :label :double}
+                                   {:dest (inc n) :label :increment}])
+                          1 19)
+       alg/pprint-path)
+
+Total Cost: 6
+1 -> 2 {:label :double}
+2 -> 4 {:label :double}
+4 -> 8 {:label :double}
+8 -> 9 {:label :increment}
+9 -> 18 {:label :double}
+18 -> 19 {:label :increment}
+```
+
+Note that since we're searching using a function rather than searching within Ubergraph, when we call `edges-in-path`, there are no actual Edge objects to return, so instead you get back edge descriptions, i.e., vectors of the form `[src dest attribute-map]`.
+
+```clojure
+=> (-> (alg/shortest-path (fn [n] [{:dest (* n 2) :label :double, :weight 3}
+                                   {:dest (inc n) :label :increment, :weight 1}])
+                          {:start-node 1, :end-node 19, :cost-attr :weight})
+       alg/edges-in-path)
+
+([1 2 {:label :increment, :weight 1}]
+ [2 3 {:label :increment, :weight 1}]
+ [3 4 {:label :increment, :weight 1}]
+ [4 8 {:label :double, :weight 3}]
+ [8 9 {:label :increment, :weight 1}]
+ [9 18 {:label :double, :weight 3}]
+ [18 19 {:label :increment, :weight 1}])
+```
+
+But it's clear that it would be possible to derive an ubergraph from the edge descriptions produced by the search process. And the function `paths->graph` does exactly that. It works on the output produced shortest-path. Recall that shortest-path can produce either a single path, or a sequence of paths when called with `:traverse true`, or an IAllPathsFromSource object when no end criterion is given. `paths->graph` will work on any of those output types. On a single path, you'll get back the graph with exactly those edges. But where it gets really interesting is when shortest-path returns one of the other two output types.
+
+When shortest-path is called with `:traverse true`, then `paths->graph` gives you insight into exactly which edges were explored during the search process, and captures all those transition edges as a new graph.
+
+```clojure
+=> (-> (alg/shortest-path (fn [n] [{:dest (* n 2) :label :double}
+                                   {:dest (inc n) :label :increment}])
+						  {:start-node 1, :end-node 9, :traverse true})
+		alg/paths->graph uber/pprint)
+Digraph
+9 Nodes:
+	 1 {:cost-of-path 0}
+	 4 {:cost-of-path 2}
+	 6 {:cost-of-path 3}
+	 3 {:cost-of-path 2}
+	 2 {:cost-of-path 1}
+	 9 {:cost-of-path 4}
+	 5 {:cost-of-path 3}
+	 16 {:cost-of-path 4}
+	 8 {:cost-of-path 3}
+8 Edges:
+	 1 -> 2 {:label :double}
+	 4 -> 8 {:label :double}
+	 4 -> 5 {:label :increment}
+	 3 -> 6 {:label :double}
+	 2 -> 4 {:label :double}
+	 2 -> 3 {:label :increment}
+	 8 -> 16 {:label :double}
+	 8 -> 9 {:label :increment}
+```
+
+Best of all, when shortest-path is called with no end condition specified, then `paths->graph` will capture the entire state space reachable from the start node(s), and all the transitions explored. In this example, where we're working with an infinite state space and not specifying an end, we'll use a node-filter to constrain the search.
+
+```clojure
+=> (-> (alg/shortest-path (fn [n] [{:dest (* n 2) :label :double}
+                                   {:dest (inc n) :label :increment}])
+					      {:start-node 1, :node-filter #(< % 12)})
+		alg/paths->graph uber/pprint)
+Digraph
+11 Nodes:
+	 7 {:cost-of-path 4}
+	 1 {:cost-of-path 0}
+	 4 {:cost-of-path 2}
+	 6 {:cost-of-path 3}
+	 3 {:cost-of-path 2}
+	 2 {:cost-of-path 1}
+	 11 {:cost-of-path 5}
+	 9 {:cost-of-path 4}
+	 5 {:cost-of-path 3}
+	 10 {:cost-of-path 4}
+	 8 {:cost-of-path 3}
+10 Edges:
+	 1 -> 2 {:label :double}
+	 4 -> 5 {:label :increment}
+	 4 -> 8 {:label :double}
+	 6 -> 7 {:label :increment}
+	 3 -> 6 {:label :double}
+	 2 -> 3 {:label :increment}
+	 2 -> 4 {:label :double}
+	 5 -> 10 {:label :double}
+	 10 -> 11 {:label :increment}
+	 8 -> 9 {:label :increment}
+```
 
 ### Serialization
 
@@ -692,27 +815,7 @@ My first thought was, "Hey, I'll just make an implementation of multi-edge graph
 
 In other words, the protocols didn't even support the behavior necessary to implement a multi-edge graph, and even if the protocols were enhanced, very few of the algorithms would actually work on multi-edge graphs -- too many assumptions were sprinkled throughout the code base that [src dest] vectors are enough to uniquely identify a given edge.
 
-I decided to embark on a five-step plan to improve Loom to cover multi-edge and other complex graph needs.
-
-### Step 1
-
-Submit pull request to Loom to support an Edge abstraction, and to update the built-in protocol functions to accept and return things that support that abstraction.  Step completed, and pull request has been accepted to Loom (Thanks Aysylu!)
-
-### Step 2
-
-Rewrite Loom's algorithms to use this Edge abstraction.  If this is done, then the algorithms will work properly on both single-edge and multi-edge graphs.  Unfortnately, I can't keep up with this on my own -- people keep contributing new "broken" algorithms (i.e., algorithms which assume a single edge between nodes and ignore the new Edge abstraction) to Loom faster than I can possibly fix them.  I'm going to need help from the community for this, so...
-
-### Step 3
-
-Write ubergraph as a concrete implementation of all the graph behvior that Loom currently supports, as well as all the behavior I'd like it to support.  That's a big part of what this library is all about.  Ubergraph provides the authors of Loom's algorithms with a rich graph data structure that has a very different internal structure than Loom's -- offering a way to test the algorithms to ensure they really are programmed to the correct protocol abstractions, and not some underlying notion of Loom's concrete implementation.
-
-### Step 4
-
-Establish an ubergraph.alg namespace where the community can help "curate" Loom's algorithms, identifying algorithms from loom.alg that work out of the box on ubergraphs, modifying algorithms from loom.alg that need modification, and writing new algorithms that leverage ubergraph's added capabilities.  I have already made good progress on this front, but there are several algorithms that still need to be adapted for Ubergraphs, such as minimum spanning tree and max flow (although Loom's algorithms will likely work on non-multigraph Ubergraphs).  I would also welcome any help in creating and adding test cases.
-
-### Step 5
-
-Ideally, I'm hoping that once all of Loom's algorithms have been successfully converted to work with multi-edge graphs, Ubergraph can be merged into Loom as the default multi-edge graph implementation.  If that turns out not to be practical, ubergraph will continue to exist independently as a kind of "Loom+", a graph data structure that works with all of Loom's protocols and algorithms, as well as supporting additional functionality.
+The ubergraph.alg namespace is a place where the community can help "curate" Loom's algorithms, identifying algorithms from loom.alg that work out of the box on ubergraphs, modifying algorithms from loom.alg that need modification, and writing new algorithms that leverage ubergraph's added capabilities.  I have already made good progress on this front, but there are several algorithms that still need to be adapted for Ubergraphs, such as minimum spanning tree and max flow (although Loom's algorithms will likely work on non-multigraph Ubergraphs).  I would also welcome any help in creating and adding test cases.
 
 
 ## License

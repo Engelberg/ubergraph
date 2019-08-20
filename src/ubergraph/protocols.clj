@@ -52,13 +52,15 @@
 
 ; Path protocols
 
-(defprotocol IPath "All the things you can do to a path"
+(defprotocol IPath
+  "All the things you can do to a path"
   (edges-in-path [path] "A list of edges comprising the path" )
   (nodes-in-path [path] "A list of nodes comprising the path" )
   (cost-of-path [path] "Returns the cost of the path with respect to the property that was minimized
 in the search that produced this path." )
   (start-of-path [path] "Returns the first node in the path")
-  (end-of-path [path] "Returns the last node in the path"))
+  (end-of-path [path] "Returns the last node in the path")
+  (last-edge-of-path [path] "Returns the last edge in the path"))
 
 (defprotocol IAllPathsFromSource "An object that knows how to produce paths on demand from a given source,
 using path-to"

@@ -1,7 +1,11 @@
 (ns ubergraph.core
   (:require [potemkin :refer [import-vars def-map-type deftype+]]
             [potemkin.collections :refer [AbstractMap]]
-            [com.rpl.specter :refer :all]
+            [com.rpl.specter :refer [select-any selected-any? select
+                                     transform multi-transform if-path
+                                     keypath must compact multi-path
+                                     nil->val terminal setval
+                                     STOP ALL NONE MAP-VALS]]
             [loom.graph :as lg]
             [loom.attr :as la]
             [ubergraph.protocols :as up]
@@ -244,6 +248,11 @@
   (equiv [this other] (and (instance? Ubergraph other)
                            (equal-graphs? this other)))
   )
+
+(defn neighbors
+  "Returns seq of nodes that are either successors or predecessors of the node"
+  [g node]
+  (distinct (concat (successors g node) (predecessors g node))))
 
 (defn undirected-graph? "If true, new edges in g are undirected by default.  If false,
   new edges in g are directed by default."
@@ -587,9 +596,9 @@
 (defn- nodes-with-attrs [g]
   (for [n (nodes g)] [n (attrs g n)]))
 
-(defn node-with-attrs "Returns [node attribute-map] with ^:node metadata so it can be safely used as an input to build-graph"
+(defn node-with-attrs "Returns [node attribute-map], which can be safely used as an input to build-graph"
   [g node]
-  ^:node [node (attrs g node)])
+  [node (attrs g node)])
 
 (defn edge-with-attrs "Returns [src dest attribute-map] with ^:edge metadata so it can be safely used as an input to build-graph"
   [g edge]

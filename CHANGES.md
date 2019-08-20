@@ -1,5 +1,30 @@
 # Ubergraph Change Log
 
+## 0.8.0
+
+### Bugfixes
+
+* :node-filter in breadth first search was filtering after nodes were reached, not before.
+
+### Enhancements
+
+* shortest-path can now take a transition function of the form (fn [node] [{:dest successor1, ...} {:dest successor2, ...} ...])
+* paths->graph converts the output from shortest-path and returns a graph
+
+## 0.7.2
+
+### Bugfixes
+
+* node-with-attrs wasn't safe for build-graph as claimed in doc string.
+
+## 0.7.1
+
+### Enhancements
+
+* Added `neighbors` function which returns a sequence of distinct successors and predecessors of a node.
+* Workaround for bug in Loom for bipartate algorithms
+* Imported loom algorithms for bf-traverse, coloring?, greedy-coloring, degeneracy-ordering, maximal-cliques.
+
 ## 0.7.0
 
 ### Bugfixes
