@@ -654,7 +654,7 @@ All of Ubergraph's algorithms, including the new `shortest-path`, should be back
 
 ### Search-driven Graph Generation
 
-The above section discussed how to search for shortest paths within a graph. But sometimes you want to go the other way, and let a search process drive the construction of a graph. This comes up a lot in my own work: I'm solving a puzzle and I know the start state and an end state, and I know the rules for state transitions, but I have no idea how I'm going to get from the start state and end state. I want to search for a path from the start state to the end state, even though I don't yet know all the nodes of the graph.
+The above section discussed how to search for shortest paths within a graph. But sometimes you want to go the other way, and let a search process drive the construction of a graph. This comes up a lot in my own work: I'm solving a puzzle and I know the start state and an end state, and I know the rules for state transitions, but I have no idea how I'm going to get from the start state to end state. I want to search for a path from the start state to the end state, even though I don't yet know all the nodes of the graph.
 
 #### Lightweight search
 
