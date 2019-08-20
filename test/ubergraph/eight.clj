@@ -1,0 +1,182 @@
+(ns ubergraph.eight
+  (:require  [clojure.test :refer :all]
+             [ubergraph.core :as uber]
+             [ubergraph.alg :as alg]
+             [com.rpl.specter :refer :all]))
+
+;; A board state is a 3x3 vector of numbers 1-8 and \- (grid) and coord of empty slot
+(defrecord State [grid slot])
+
+;; Constructing a state
+
+(defn find-slot "Finds coord of empty slot" [grid]
+  (first (for [i (range 3), j (range 3)
+               :when (= ((grid i) j) \-)]
+           [i j])))
+
+(defn make-state "Constructs State from grid" [grid]
+  (State. grid (find-slot grid)))
+
+(def solved-state (make-state [[1 2 3]
+                               [4 5 6]
+                               [7 8 \-]]))
+
+;; Transitions out from a given State to other States
+;; We label the transitions with what number is moved, and in what direction
+
+(defn valid-coord? [[row col]]
+  (and (<= 0 row 2) (<= 0 col 2)))
+
+(defn neighbors [[row col]]
+  (filter valid-coord? [[(inc row) col :up]
+                        [(dec row) col :down]
+                        [row (inc col) :left]
+                        [row (dec col) :right]]))
+
+(defn transitions [{:keys [grid slot]}]
+  (let [ns (neighbors slot)
+        [slot-row slot-col] slot]
+    (for [[row col dir] ns
+          :let [num ((grid row) col)
+                new-grid (multi-transform
+                          (multi-path [(nthpath row col) (terminal-val \-)]
+                                      [(nthpath slot-row slot-col)
+                                       (terminal-val num)])
+                          grid)]]
+      {:dest (State. new-grid [row col]), :number num :direction dir})))
+
+;; A simple lower-bound heuristic for A* search
+
+(defn reverse-index [grid]
+  (into {} (for [i (range 3), j (range 3)] [((grid i) j) [i j]])))
+
+(def reverse-solved-grid (reverse-index (:grid solved-state)))
+
+(defn abs [n] (if (neg? n) (- n) n))
+(defn taxi-distance [[x1 y1] [x2 y2]]
+  (+ (abs (- x1 x2)) (abs (- y1 y2))))
+
+(defn lower-bound [{:keys [grid]}]
+  (let [lookup (reverse-index grid)]
+    (apply +
+           (for [n (range 1 9)]
+             (taxi-distance (get lookup n) (get reverse-solved-grid n))))))
+
+(defn solve [grid]
+  (mapv peek
+        (alg/edges-in-path
+         (alg/shortest-path transitions {:start-node (make-state grid),
+                                         :end-node solved-state,
+                                         :heuristic-fn lower-bound}))))
+
+(def sample1 [[\- 1 3]
+              [4 2 5]
+              [7 8 6]])
+
+(deftest test-solver
+  (are [x y] (= y x)
+    (solve sample1)
+    [{:number 1, :direction :left}
+     {:number 2, :direction :up}
+     {:number 5, :direction :left}
+     {:number 6, :direction :up}]))
+
+(def hardest [[8 6 7]
+              [2 5 4]
+              [3 \- 1]])
+
+;; Want to go faster? - Pattern database
+
+;; Stringify grids so our database takes up less memory
+(def char-map {0 \0 1 \1 2 \2 3 \3 4 \4 5 \5 6 \6 7 \7 8 \8 \- \-})
+(defn grid->str
+  ([grid] (grid->str grid (constantly false) identity))
+  ([grid set-to-zero? substitute]
+   (apply str (sequence (comp cat (map (fn [n] (if (set-to-zero? n) 0 n)))
+                              (map substitute) (map char-map)) grid))))
+
+
+;; 0 is used to represent a blank tile (i.e., tile we don't care about in pattern)
+(def pattern1 (State. [[1 2 3] [4 0 0] [0 0 \-]] [2 2]))
+(def pattern2 (State. [[0 0 0] [0 5 6] [7 8 \-]] [2 2]))
+
+;; We use a reverse search to generate lower-bound on moving 1-4 back in place
+;; and 5-8 back in place. We don't count moves of "blank" tiles.
+(defn pattern-transitions [{:keys [grid slot]}]
+  (let [ns (neighbors slot)
+        [slot-row slot-col] slot]
+    (for [[row col dir] ns
+          :let [num ((grid row) col)
+                new-grid (multi-transform
+                          (multi-path [(nthpath row col) (terminal-val \-)]
+                                      [(nthpath slot-row slot-col)
+                                       (terminal-val num)])
+                          grid)]]
+      {:dest (State. new-grid [row col]), :number num :direction dir,
+       :weight (if (zero? num) 0 1)})))
+
+(defn reachable-pattern-states [pattern]
+  (into {}
+        (map (juxt (comp grid->str :grid alg/end-of-path) alg/cost-of-path))
+        (alg/shortest-path pattern-transitions
+                           {:start-node pattern :traverse true
+                            :cost-attr :weight})))
+
+;; We can get some extra mileage out of our database by flipping
+;; the patterns across the main diagonal.
+(def flip-map {1 1, 2 4, 3 7, 4 2, 5 5, 6 8, 7 3, 8 6, 0 0, \- \-})
+(defn flip-grid [grid]
+  (vec (for [i (range 3)]
+         (vec (for [j (range 3)]
+                ((grid j) i))))))
+
+;; Now all the elements are in place to establish a better lower bound
+(let [pattern1-db (delay (reachable-pattern-states pattern1)),
+      pattern2-db (delay (reachable-pattern-states pattern2))]
+  (defn better-lower-bound [{:keys [grid]}]
+    (max 
+     (+ (@pattern1-db (grid->str grid #{5 6 7 8} identity))
+        (@pattern2-db (grid->str grid #{1 2 3 4} identity)))
+     #_(let [flip (flip-grid grid)]
+         (+ (@pattern1-db (grid->str flip #{5 8 3 6} flip-map))
+            (@pattern2-db (grid->str flip #{1 4 7 2} flip-map)))))))
+
+;; First time you use this it will take longer while generating the pattern databases.
+;; Subsequent runs will be up to 10x faster than other solver on complex puzzles
+;; On really simple puzzles, other solver may be slightly faster
+(defn solve-faster [grid]
+  (mapv peek
+        (alg/edges-in-path         
+         (alg/shortest-path transitions {:start-node (make-state grid),
+                                         :end-node solved-state,
+                                         :heuristic-fn (fn [s] (max (lower-bound s)
+                                                                    (better-lower-bound s)))}))))
+
+;; Generating random puzzles, to better compare heuristics
+
+(defn count-inversions [permutation]
+  (let [lookup 
+        (into {} (for [i (range 9)] [(permutation i) i]))]
+    (count (for [i (range 1 9), j (range (inc i) 9)
+                 :when (< (lookup j) (lookup i))]
+             1))))
+
+(defn solvable? [permutation]
+  (even? (count-inversions permutation)))
+
+(defn generate-random-solvable-grid []
+  (let [permutation (shuffle [1 2 3 4 5 6 7 8 \-])]
+    (if (solvable? permutation)
+      (mapv vec (partition 3 permutation))
+      (generate-random-solvable-grid))))
+
+(defn benchmark [n]
+  (solve-faster sample1) ;; to generate pattern databases
+  (let [grids (repeatedly n generate-random-solvable-grid)]
+    (time (run! solve grids))
+    (time (run! solve-faster grids))))
+
+
+
+
+
