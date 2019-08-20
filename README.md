@@ -18,12 +18,12 @@ Ubergraph is a great choice for people who:
 
 Add the following line to your leiningen dependencies:
 
-	[ubergraph "0.8.0"]
+    [ubergraph "0.8.0"]
 
 Require ubergraph in your namespace header:
 
-	(ns example.core
-	  (:require [ubergraph.core :as uber]))
+    (ns example.core
+      (:require [ubergraph.core :as uber]))
 
 Ubergraph lists loom as a dependency, so when you add ubergraph to your project, leiningen will also download loom.  This means all of loom's namespaces are also available to you in your program.  Loom is currently organized in a way that its protocols are split across several different namespaces.  As a convenience, ubergraph.core provides access to all of loom's protocol functions through its own namespace.
 
@@ -68,9 +68,9 @@ All ubergraph constructors are multiple arity functions that can take an arbitra
 + Node with attributes
     + [node attribute-map]
 + Edge description:
-	+ [src dest]
-	+ [src dest weight]
-	+ [src dest attribute-map]
+    + [src dest]
+    + [src dest weight]
+    + [src dest attribute-map]
 + Adjacency map (e.g., {1 [2 3], 2 [3]} adds the edges 1->2, 1->3, and 2->3).
 + Weighted adjacency map (e.g., {:a {:b 2, :c 3}} creates an edge of weight 2 between :a and :b, etc.)
 + Attribute adjacency map (e.g., {:a {:b {:weight 2}, :c {:weight 3}}})
@@ -92,14 +92,14 @@ Ubergraphs built with the `graph` constructor treat every edge as a bidirectiona
 => (uber/pprint graph1)
 Graph
 4 Nodes:
-	 :d
-	 :c
-	 :b
-	 :a
+     :d
+     :c
+     :b
+     :a
 3 Edges:
-	 :b <-> :d
-	 :a <-> :c
-	 :a <-> :b
+     :b <-> :d
+     :a <-> :c
+     :a <-> :b
 ```
 
 Edge definitions can include weights.
@@ -111,14 +111,14 @@ Edge definitions can include weights.
 => (uber/pprint graph2)
 Graph
 4 Nodes:
-	 :d
-	 :c
-	 :b
-	 :a
+     :d
+     :c
+     :b
+     :a
 3 Edges:
-	 :b <-> :d {:weight 4}
-	 :a <-> :c {:weight 3}
-	 :a <-> :b {:weight 2}
+     :b <-> :d {:weight 4}
+     :a <-> :c {:weight 3}
+     :a <-> :b {:weight 2}
 ```
 
 Note that ubergraph differs from Loom in the way that it handles weights.  *Ubergraph simply stores weights in the edge's attribute map, under the keyword :weight.*  In my opinion, this is a superior way to handle weights because it allows you to manipulate weights using the same interface that you use to alter other attributes.  Also, once weight is no longer a privileged field, it makes it easier to develop algorithms that take as an additional input the attribute to use as the edge weight.  Right now, Loom algorithms have a baked-in notion that we only want to do traversals based on weight, and this is a problem.  Ideally, we want it to be just as easy to search a graph for shortest traversals using other attributes such as :price or :distance.  However, to be compatible with Loom's protocols, Ubergraphs support the protocol function `weight` which simply extracts the `:weight` attribute from the attribute map.
@@ -131,12 +131,12 @@ Note that ubergraph differs from Loom in the way that it handles weights.  *Uber
 => (uber/pprint graph3)
 Graph
 3 Nodes:
-	 :c
-	 :b
-	 :a
+     :c
+     :b
+     :a
 2 Edges:
-	 :a <-> :c {:weight 3, :price 300, :distance 20}
-	 :a <-> :b {:weight 2, :price 200, :distance 10}
+     :a <-> :c {:weight 3, :price 300, :distance 20}
+     :a <-> :b {:weight 2, :price 200, :distance 10}
 ```
 
 You can extend graphs with more "inits" by using `build-graph`, or you can use `add-nodes`, `add-nodes-with-attrs` (which takes only [node attr-map] inits), or `add-edges` (which takes [src dest], [src dest weight], or [src dest attr-map] inits).  `add-nodes*`, `add-nodes-with-attrs*` and `add-edges*` are variants which take sequences rather than multiple args.
@@ -157,15 +157,15 @@ Adding nodes that already exist will do nothing.  Basic graphs that are not mult
 => (uber/pprint (uber/add-directed-edges graph1 [:a :d]))
 Graph
 4 Nodes:
-	 :d
-	 :c
-	 :b
-	 :a
+     :d
+     :c
+     :b
+     :a
 4 Edges:
-	 :b <-> :d
-	 :a -> :d
-	 :a <-> :c
-	 :a <-> :b
+     :b <-> :d
+     :a -> :d
+     :a <-> :c
+     :a <-> :b
 ```
 
 Ubergraph supports all of Loom's protocols, so you can do all the things you'd expect to be able to do to graphs:
@@ -402,21 +402,21 @@ This map was generated from the following graph:
 => (uber/pprint airports)
 Multigraph
 5 Nodes:
-	 :Egglesberg {:population 5000}
-	 :Dentana {:population 1000}
-	 :Coulton {:population 4000}
-	 :Balela {:population 2000}
-	 :Artemis {:population 3000}
+     :Egglesberg {:population 5000}
+     :Dentana {:population 1000}
+     :Coulton {:population 4000}
+     :Balela {:population 2000}
+     :Artemis {:population 3000}
 9 Edges:
-	 :Egglesberg -> :Coulton {:airline :AirLux, :color :red, :price 80, :distance 30}
-	 :Dentana -> :Egglesberg {:airline :AirLux, :color :red, :price 80, :distance 50}
-	 :Coulton -> :Dentana {:airline :AirLux, :color :red, :price 80, :distance 65}
-	 :Balela <-> :Egglesberg {:airline :CheapAir, :color :blue, :price 350, :distance 50}
-	 :Balela <-> :Coulton {:airline :ThriftyLines, :color :green, :price 142, :distance 70}
-	 :Artemis <-> :Dentana {:airline :CheapAir, :color :blue, :price 130, :distance 160}
-	 :Artemis <-> :Coulton {:airline :ThriftyLines, :color :green, :price 235, :distance 120}
-	 :Artemis <-> :Balela {:airline :CheapAir, :color :blue, :price 200, :distance 40}
-	 :Artemis <-> :Balela {:airline :ThriftyLines, :color :green, :price 167, :distance 40}
+     :Egglesberg -> :Coulton {:airline :AirLux, :color :red, :price 80, :distance 30}
+     :Dentana -> :Egglesberg {:airline :AirLux, :color :red, :price 80, :distance 50}
+     :Coulton -> :Dentana {:airline :AirLux, :color :red, :price 80, :distance 65}
+     :Balela <-> :Egglesberg {:airline :CheapAir, :color :blue, :price 350, :distance 50}
+     :Balela <-> :Coulton {:airline :ThriftyLines, :color :green, :price 142, :distance 70}
+     :Artemis <-> :Dentana {:airline :CheapAir, :color :blue, :price 130, :distance 160}
+     :Artemis <-> :Coulton {:airline :ThriftyLines, :color :green, :price 235, :distance 120}
+     :Artemis <-> :Balela {:airline :CheapAir, :color :blue, :price 200, :distance 40}
+     :Artemis <-> :Balela {:airline :ThriftyLines, :color :green, :price 167, :distance 40}
 ```
 
 To create a visualization of the graph, I used the `viz-graph` function in the ubergraph.core namespace (must have GraphViz installed for this to work):
@@ -526,7 +526,7 @@ Actually, we are not just limited to minimizing based on edge attributes, we can
 ```clojure
 => (alg/pprint-path
      (alg/shortest-path airports
-	     {:start-node :Artemis, :end-node :Egglesberg,
+         {:start-node :Artemis, :end-node :Egglesberg,
           :cost-fn (fn [e] (+ 100000 (uber/attr airports e :distance)))}))
 Total Cost: 200090
 :Artemis -> :Balela {:airline :ThriftyLines, :color :green, :price 167, :distance 40}
@@ -564,7 +564,7 @@ We can place minimum and maximum cost constraints on the sequence of paths retur
 ```clojure
 => (map alg/end-of-path
      (alg/shortest-path airports
-	    {:start-node :Egglesberg, :traverse true, :min-cost 2, :max-cost 2}))
+        {:start-node :Egglesberg, :traverse true, :min-cost 2, :max-cost 2}))
 (:Dentana :Artemis)
 ```
 
@@ -702,6 +702,8 @@ Note that since we're searching using a function rather than searching within Ub
  [18 19 {:label :increment, :weight 1}])
 ```
 
+#### Generating graph from paths
+
 But it's clear that it would be possible to derive an ubergraph from the edge descriptions produced by the search process. And the function `paths->graph` does exactly that. It works on the output produced shortest-path. Recall that shortest-path can produce either a single path, or a sequence of paths when called with `:traverse true`, or an IAllPathsFromSource object when no end criterion is given. `paths->graph` will work on any of those output types. On a single path, you'll get back the graph with exactly those edges. But where it gets really interesting is when shortest-path returns one of the other two output types.
 
 When shortest-path is called with `:traverse true`, then `paths->graph` gives you insight into exactly which edges were explored during the search process, and captures all those transition edges as a new graph.
@@ -709,28 +711,28 @@ When shortest-path is called with `:traverse true`, then `paths->graph` gives yo
 ```clojure
 => (-> (alg/shortest-path (fn [n] [{:dest (* n 2) :label :double}
                                    {:dest (inc n) :label :increment}])
-						  {:start-node 1, :end-node 9, :traverse true})
-		alg/paths->graph uber/pprint)
+                          {:start-node 1, :end-node 9, :traverse true})
+        alg/paths->graph uber/pprint)
 Digraph
 9 Nodes:
-	 1 {:cost-of-path 0}
-	 4 {:cost-of-path 2}
-	 6 {:cost-of-path 3}
-	 3 {:cost-of-path 2}
-	 2 {:cost-of-path 1}
-	 9 {:cost-of-path 4}
-	 5 {:cost-of-path 3}
-	 16 {:cost-of-path 4}
-	 8 {:cost-of-path 3}
+     1 {:cost-of-path 0}
+     4 {:cost-of-path 2}
+     6 {:cost-of-path 3}
+     3 {:cost-of-path 2}
+     2 {:cost-of-path 1}
+     9 {:cost-of-path 4}
+     5 {:cost-of-path 3}
+     16 {:cost-of-path 4}
+     8 {:cost-of-path 3}
 8 Edges:
-	 1 -> 2 {:label :double}
-	 4 -> 8 {:label :double}
-	 4 -> 5 {:label :increment}
-	 3 -> 6 {:label :double}
-	 2 -> 4 {:label :double}
-	 2 -> 3 {:label :increment}
-	 8 -> 16 {:label :double}
-	 8 -> 9 {:label :increment}
+     1 -> 2 {:label :double}
+     4 -> 8 {:label :double}
+     4 -> 5 {:label :increment}
+     3 -> 6 {:label :double}
+     2 -> 4 {:label :double}
+     2 -> 3 {:label :increment}
+     8 -> 16 {:label :double}
+     8 -> 9 {:label :increment}
 ```
 
 Best of all, when shortest-path is called with no end condition specified, then `paths->graph` will capture the entire state space reachable from the start node(s), and all the transitions explored. In this example, where we're working with an infinite state space and not specifying an end, we'll use a node-filter to constrain the search.
@@ -738,32 +740,32 @@ Best of all, when shortest-path is called with no end condition specified, then 
 ```clojure
 => (-> (alg/shortest-path (fn [n] [{:dest (* n 2) :label :double}
                                    {:dest (inc n) :label :increment}])
-					      {:start-node 1, :node-filter #(< % 12)})
-		alg/paths->graph uber/pprint)
+                          {:start-node 1, :node-filter #(< % 12)})
+        alg/paths->graph uber/pprint)
 Digraph
 11 Nodes:
-	 7 {:cost-of-path 4}
-	 1 {:cost-of-path 0}
-	 4 {:cost-of-path 2}
-	 6 {:cost-of-path 3}
-	 3 {:cost-of-path 2}
-	 2 {:cost-of-path 1}
-	 11 {:cost-of-path 5}
-	 9 {:cost-of-path 4}
-	 5 {:cost-of-path 3}
-	 10 {:cost-of-path 4}
-	 8 {:cost-of-path 3}
+     7 {:cost-of-path 4}
+     1 {:cost-of-path 0}
+     4 {:cost-of-path 2}
+     6 {:cost-of-path 3}
+     3 {:cost-of-path 2}
+     2 {:cost-of-path 1}
+     11 {:cost-of-path 5}
+     9 {:cost-of-path 4}
+     5 {:cost-of-path 3}
+     10 {:cost-of-path 4}
+     8 {:cost-of-path 3}
 10 Edges:
-	 1 -> 2 {:label :double}
-	 4 -> 5 {:label :increment}
-	 4 -> 8 {:label :double}
-	 6 -> 7 {:label :increment}
-	 3 -> 6 {:label :double}
-	 2 -> 3 {:label :increment}
-	 2 -> 4 {:label :double}
-	 5 -> 10 {:label :double}
-	 10 -> 11 {:label :increment}
-	 8 -> 9 {:label :increment}
+     1 -> 2 {:label :double}
+     4 -> 5 {:label :increment}
+     4 -> 8 {:label :double}
+     6 -> 7 {:label :increment}
+     3 -> 6 {:label :double}
+     2 -> 3 {:label :increment}
+     2 -> 4 {:label :double}
+     5 -> 10 {:label :double}
+     10 -> 11 {:label :increment}
+     8 -> 9 {:label :increment}
 ```
 
 ### Serialization
