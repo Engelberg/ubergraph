@@ -45,7 +45,8 @@
         #{} (set (successors g1 4))
         2 (out-degree g1 1)
         2 (out-degree g1 3)
-        0 (out-degree g1 4)))
+        0 (out-degree g1 4)
+        #{[1 2] [1 3]} (set (map (juxt :src :dest) (out-edges g1 1)))))
     (testing "Add & remove"
       (are [expected got] (= expected got)
         #{1 2 3 4 5} (set (nodes (add-nodes g1 5)))
@@ -105,6 +106,13 @@
         #{} (set (successors g6 1))
         2 (out-degree g6 3)
         0 (out-degree g6 1)))
+    (testing "Attributes"
+      (are [expected got] (= expected got)
+        {:a 8} (attrs (add-attr g1 [1 2] :a 8) [1 2])
+        {:a 8 :b 10} (attrs (add-attrs g1 [1 2] {:a 8 :b 10}) [1 2])
+        {:b 10} (attrs (remove-attr (add-attrs g1 [1 2] {:a 8 :b 10}) [1 2] :a) [1 2])
+        {} (attrs (remove-attrs (add-attrs g1 [1 2] {:a 8 :b 10}) [1 2] [:a :b]) [1 2])
+        {:a 1 :c 2} (attrs (set-attrs (add-attrs g1 [1 2] {:a 8 :b 10}) [1 2] {:a 1 :c 2}) [1 2])))
     (testing "Add & remove"
       (are [expected got] (= expected got)
         #{1 2 3 4 5} (set (nodes (add-nodes g1 5)))
