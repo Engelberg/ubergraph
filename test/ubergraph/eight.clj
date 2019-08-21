@@ -85,72 +85,21 @@
               [2 5 4]
               [3 \- 1]])
 
-;; Want to go faster? - Pattern database
+;; Want to go faster? - Let's find all solutions
+;; We do that by searching out from the goal state
 
-;; Stringify grids so our database takes up less memory
-(def char-map {0 \0 1 \1 2 \2 3 \3 4 \4 5 \5 6 \6 7 \7 8 \8 \- \-})
-(defn grid->str
-  ([grid] (grid->str grid (constantly false) identity))
-  ([grid set-to-zero? substitute]
-   (apply str (sequence (comp cat (map (fn [n] (if (set-to-zero? n) 0 n)))
-                              (map substitute) (map char-map)) grid))))
+(def flip-direction {:down :up, :up :down, :left :right, :right :left})
+(defn reverse-solution [sol]
+  (into [] (map (fn [s] (update s :direction flip-direction)))
+        (rseq sol)))
 
-
-;; 0 is used to represent a blank tile (i.e., tile we don't care about in pattern)
-(def pattern1 (State. [[1 2 3] [4 0 0] [0 0 \-]] [2 2]))
-(def pattern2 (State. [[0 0 0] [0 5 6] [7 8 \-]] [2 2]))
-
-;; We use a reverse search to generate lower-bound on moving 1-4 back in place
-;; and 5-8 back in place. We don't count moves of "blank" tiles.
-(defn pattern-transitions [{:keys [grid slot]}]
-  (let [ns (neighbors slot)
-        [slot-row slot-col] slot]
-    (for [[row col dir] ns
-          :let [num ((grid row) col)
-                new-grid (multi-transform
-                          (multi-path [(nthpath row col) (terminal-val \-)]
-                                      [(nthpath slot-row slot-col)
-                                       (terminal-val num)])
-                          grid)]]
-      {:dest (State. new-grid [row col]), :number num :direction dir,
-       :weight (if (zero? num) 0 1)})))
-
-(defn reachable-pattern-states [pattern]
-  (into {}
-        (map (juxt (comp grid->str :grid alg/end-of-path) alg/cost-of-path))
-        (alg/shortest-path pattern-transitions
-                           {:start-node pattern :traverse true
-                            :cost-attr :weight})))
-
-;; We can get some extra mileage out of our database by flipping
-;; the patterns across the main diagonal.
-(def flip-map {1 1, 2 4, 3 7, 4 2, 5 5, 6 8, 7 3, 8 6, 0 0, \- \-})
-(defn flip-grid [grid]
-  (vec (for [i (range 3)]
-         (vec (for [j (range 3)]
-                ((grid j) i))))))
-
-;; Now all the elements are in place to establish a better lower bound
-(let [pattern1-db (delay (reachable-pattern-states pattern1)),
-      pattern2-db (delay (reachable-pattern-states pattern2))]
-  (defn better-lower-bound [{:keys [grid]}]
-    (max 
-     (+ (@pattern1-db (grid->str grid #{5 6 7 8} identity))
-        (@pattern2-db (grid->str grid #{1 2 3 4} identity)))
-     #_(let [flip (flip-grid grid)]
-         (+ (@pattern1-db (grid->str flip #{5 8 3 6} flip-map))
-            (@pattern2-db (grid->str flip #{1 4 7 2} flip-map)))))))
-
-;; First time you use this it will take longer while generating the pattern databases.
-;; Subsequent runs will be up to 10x faster than other solver on complex puzzles
-;; On really simple puzzles, other solver may be slightly faster
-(defn solve-faster [grid]
-  (mapv peek
-        (alg/edges-in-path         
-         (alg/shortest-path transitions {:start-node (make-state grid),
-                                         :end-node solved-state,
-                                         :heuristic-fn (fn [s] (max (lower-bound s)
-                                                                    (better-lower-bound s)))}))))
+;; First time you use this it will take longer while generating all solutions.
+(let [all-paths (delay (alg/shortest-path transitions {:start-node solved-state}))]
+  (defn solve-faster [grid]
+    (->> (alg/path-to @all-paths (make-state grid))
+         alg/edges-in-path
+         (mapv peek)
+         reverse-solution)))
 
 ;; Generating random puzzles, to better compare heuristics
 

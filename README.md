@@ -18,7 +18,7 @@ Ubergraph is a great choice for people who:
 
 Add the following line to your leiningen dependencies:
 
-    [ubergraph "0.8.0"]
+    [ubergraph "0.8.1"]
 
 Require ubergraph in your namespace header:
 
@@ -546,6 +546,13 @@ We extract the specific paths with the `path-to` protocol function.
 Total Cost: 110
 :Coulton -> :Balela {:airline :ThriftyLines, :color :green, :price 142, :distance 70}
 :Balela -> :Artemis {:airline :ThriftyLines, :color :green, :price 167, :distance 40}
+```
+
+What are all the places we can get to from Couton?
+
+```clojure
+=>  (alg/all-destinations out-of-coulton)
+(:Balela :Artemis :Coulton :Egglesberg :Dentana)
 ```
 
 Sometimes, you don't just want the final lookup table of paths, you want to see the order in which the paths are discovered by the search process.  You can get this sequence of paths by setting `:traverse true`.  Let's look at the order in which the cities are visited in a breadth-first search out of Artemis.  Remember, this is a sequence of path objects that is returned, so we can use any of the path protocol functions to get at the contents of the path.

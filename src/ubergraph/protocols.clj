@@ -62,9 +62,11 @@ in the search that produced this path." )
   (end-of-path [path] "Returns the last node in the path")
   (last-edge-of-path [path] "Returns the last edge in the path"))
 
-(defprotocol IAllPathsFromSource "An object that knows how to produce paths on demand from a given source,
-using path-to"
-  (path-to [paths dest] "The shortest path to dest"))
+(defprotocol IAllPathsFromSource
+  "An object that knows how to produce paths on demand from a given source,
+  using path-to"
+  (path-to [paths dest] "The shortest path to dest")
+  (all-destinations [paths] "All possible destinations we know how to get to"))
 
 (defprotocol IAllPaths "An object that knows how to produce paths on demand between any pair of nodes,
 using path-between"

@@ -223,7 +223,8 @@
     130
     (airport-edges (alg/shortest-path airports {:start-node :Dentana, :end-nodes [:Artemis :Balela], :cost-attr :cost}))
     '([:Dentana :Artemis :CheapAir])
-    
+    (set (alg/all-destinations (alg/shortest-path airports {:start-node :Coulton, :cost-attr :distance})))
+    (set [:Balela :Artemis :Coulton :Egglesberg :Dentana])    
     airports airportsv2
     ))
 

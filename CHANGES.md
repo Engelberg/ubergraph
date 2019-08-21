@@ -1,5 +1,16 @@
 # Ubergraph Change Log
 
+## 0.8.1
+
+### Bugfixes
+
+* In breadth-first search with no end node, `path-to` wasn't returning nil for invalid dest.
+
+### Enhancements
+
+* Added `all-destinations` to IAllPathsFromSource protocol.
+* Added sliding puzzle example in test directory as eight.clj
+
 ## 0.8.0
 
 ### Bugfixes

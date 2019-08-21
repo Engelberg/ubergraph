@@ -23,7 +23,8 @@
   start-of-path
   end-of-path
   last-edge-of-path
-  path-to]
+  path-to
+  all-destinations]
  ;;   path-between  Reserved for future use in all-paths algorithms
  
  [loom.alg
@@ -64,19 +65,24 @@
 (defrecord AllPathsFromSource [^Map backlinks ^Map least-costs]
   ubergraph.protocols/IAllPathsFromSource
   (path-to [this dest]
-    (when (.get backlinks dest)
+    (when-let [last-edge (.get backlinks dest)]
       (->Path (delay (find-path dest backlinks))
               (.get least-costs dest)
               dest
-              (.get backlinks dest)))))
+              last-edge)))
+  (all-destinations [this]
+    (keys backlinks)))
 
 (defrecord AllBFSPathsFromSource [^Map backlinks ^Map depths]
   ubergraph.protocols/IAllPathsFromSource
   (path-to [this dest]
-    (->Path (delay (find-path dest backlinks))
-            (.get depths dest)
-            dest
-            (.get backlinks dest))))
+    (when-let [last-edge (.get backlinks dest)]
+      (->Path (delay (find-path dest backlinks))
+              (.get depths dest)
+              dest
+              last-edge)))
+  (all-destinations [this]
+    (keys backlinks)))
 
 (alter-meta! #'->Path assoc :no-doc true)
 (alter-meta! #'->AllPathsFromSource assoc :no-doc true)
