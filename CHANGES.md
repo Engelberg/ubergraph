@@ -9,7 +9,7 @@
 ### Enhancements
 
 * Added `all-destinations` to IAllPathsFromSource protocol.
-* Added sliding puzzle example in test directory as eight.clj
+* Added sliding puzzle example in test directory as eight.clj.
 
 ## 0.8.0
 
