@@ -174,7 +174,8 @@
   (add-attr [g n1 n2 k v] (add-attr g (get-edge g n1 n2) k v))
   (remove-attr [g node-or-edge k]
                (setval [(must :attrs (resolve-node-or-edge g node-or-edge))
-                        (compact k)]
+                        ALL
+                        #(= k (first %))]
                        NONE g))
   (remove-attr [g n1 n2 k] (remove-attr g (get-edge g n1 n2) k))
   (attr [g node-or-edge k]
