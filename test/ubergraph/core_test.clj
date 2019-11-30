@@ -444,4 +444,12 @@
     (testing "remove attr as vector"
       (is (= {:keyword 1
               {:k :v}  2}
-             (attrs (remove-attr g1 1 [:1 :2]) 1))))))
+             (attrs (remove-attr g1 1 [:1 :2]) 1))))
+
+    (testing "the attribute map of a node will be removed after the last attr is removed"
+      (is (= {}
+             (-> g1
+                 (remove-attr 1 :keyword)
+                 (remove-attr 1 [:1 :2])
+                 (remove-attr 1 {:k :v})
+                 :attrs))))))
