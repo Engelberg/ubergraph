@@ -424,3 +424,32 @@
     (testing "Check internal invariants of data structures"
       (satisfies-invariants g1)
       (satisfies-invariants g2))))
+
+
+(deftest remove-attr-test
+  (let [g1 (multidigraph [1 {:keyword 1
+                             {:k :v}  2
+                             [:1 :2]  3}])]
+
+    (testing "remove attr as keyword"
+      (is (= {{:k :v} 2
+              [:1 :2] 3}
+             (attrs (remove-attr g1 1 :keyword) 1))))
+
+    (testing "remove attr as map"
+      (is (= {:keyword 1
+              [:1 :2]  3}
+             (attrs (remove-attr g1 1 {:k :v}) 1))))
+
+    (testing "remove attr as vector"
+      (is (= {:keyword 1
+              {:k :v}  2}
+             (attrs (remove-attr g1 1 [:1 :2]) 1))))
+
+    (testing "the attribute map of a node will be removed after the last attr is removed"
+      (is (= {}
+             (-> g1
+                 (remove-attr 1 :keyword)
+                 (remove-attr 1 [:1 :2])
+                 (remove-attr 1 {:k :v})
+                 :attrs))))))
