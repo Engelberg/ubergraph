@@ -1,5 +1,11 @@
 # Ubergraph Change Log
 
+## 0.8.2
+
+### Bugfixes
+
+* Fixed bug introduced in 0.8.0 that prevented one from removing an attribute whose key was something other than a keyword.
+
 ## 0.8.1
 
 ### Bugfixes
