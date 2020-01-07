@@ -453,3 +453,13 @@
                  (remove-attr 1 [:1 :2])
                  (remove-attr 1 {:k :v})
                  :attrs))))))
+
+(deftest metadata-test
+  (let [g1 (graph [1 2])
+        g2 (with-meta g1 {:a 1})
+        g3 (vary-meta g2 assoc :b 2)]
+    (testing "Ubergraphs have metadata"
+      (is (= (meta g1) {}))
+      (is (= (meta g2) {:a 1}))
+      (is (= (meta g3) {:a 1 :b 2}))
+      (is (= g1 g2 g3)))))

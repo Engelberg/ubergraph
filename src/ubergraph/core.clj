@@ -126,7 +126,7 @@
          force-add-directed-edge force-add-undirected-edge remove-edges
          equal-graphs? hash-graph build-graph)
 
-(def-map-type Ubergraph [node-map allow-parallel? undirected? attrs cached-hash]
+(def-map-type Ubergraph [node-map allow-parallel? undirected? attrs cached-hash metadata]
   AbstractMap
   lg/Graph
   (nodes [g] (keys (:node-map g)))
@@ -166,7 +166,7 @@
   (add-edges* [g edge-definitions] (reduce (fn [g edge] (add-edge g edge)) g edge-definitions))
   (remove-nodes* [g nodes] (reduce remove-node g nodes))
   (remove-edges* [g edges] (reduce remove-edge g edges))
-  (remove-all [g] (Ubergraph. {} allow-parallel? undirected? {} (atom -1)))
+  (remove-all [g] (Ubergraph. {} allow-parallel? undirected? {} (atom -1) metadata))
 
   la/AttrGraph
   (add-attr [g node-or-edge k v]
@@ -235,16 +235,16 @@
          default-value))
   (assoc [this key value]
          (case key
-           :node-map (Ubergraph. value allow-parallel? undirected? attrs cached-hash)
-           :allow-parallel? (Ubergraph. node-map value undirected? attrs cached-hash)
-           :undirected? (Ubergraph. node-map allow-parallel? value attrs cached-hash)
-           :attrs (Ubergraph. node-map allow-parallel? undirected? value cached-hash)
-           :cached-hash (Ubergraph. node-map allow-parallel? undirected? attrs value)
+           :node-map (Ubergraph. value allow-parallel? undirected? attrs cached-hash metadata)
+           :allow-parallel? (Ubergraph. node-map value undirected? attrs cached-hash metadata)
+           :undirected? (Ubergraph. node-map allow-parallel? value attrs cached-hash metadata)
+           :attrs (Ubergraph. node-map allow-parallel? undirected? value cached-hash metadata)
+           :cached-hash (Ubergraph. node-map allow-parallel? undirected? attrs value metadata)
            this))
   (dissoc [this key] this)
   (keys [this] [:node-map :allow-parallel? :undirected? :attrs :cached-hash])
-  (meta [this] nil)
-  (with-meta [this meta] this)
+  (meta [this] metadata)
+  (with-meta [this meta] (Ubergraph. node-map allow-parallel? undirected? attrs cached-hash meta))
 
   (hasheq [this] (hash-graph this))
   (equiv [this other] (and (instance? Ubergraph other)
@@ -398,7 +398,7 @@
                                                   (terminal #(fconj % edge))]
                                                  [:in-degree (terminal finc)])])
          node-map)]
-    (Ubergraph. new-node-map (:allow-parallel? g) (:undirected? g) new-attrs (atom -1))))
+    (Ubergraph. new-node-map (:allow-parallel? g) (:undirected? g) new-attrs (atom -1) (meta g))))
 
 (defn- add-undirected-edge [g src dest attributes]
   (let [g (-> g (add-node src) (add-node dest))
@@ -425,7 +425,7 @@
                                                  [:in-degree (terminal finc)]
                                                  [:out-degree (terminal finc)])])
          node-map)]
-    (Ubergraph. new-node-map (:allow-parallel? g) (:undirected? g) new-attrs (atom -1))))
+    (Ubergraph. new-node-map (:allow-parallel? g) (:undirected? g) new-attrs (atom -1) (meta g))))
 
 (defn- number->map [n]
   (if (number? n) {:weight n} n))
@@ -556,7 +556,7 @@
 (defn- swap-edge [edge]
   (assoc edge :src (:dest edge) :dest (:src edge)))
 
-(defn- transpose-impl [{:keys [node-map allow-parallel? undirected? attrs reverse-edges]}]
+(defn- transpose-impl [{:keys [node-map allow-parallel? undirected? attrs reverse-edges] :as g}]
   (let [new-node-map
         (into {} (for [[node {:keys [in-edges out-edges in-degree out-degree]}] node-map
                        :let [new-in-edges
@@ -568,7 +568,7 @@
         new-attrs (into {} (for [[o attr] attrs]
                              (if (edge? o) [(swap-edge o) attr] [o attr])))]
 
-    (Ubergraph. new-node-map allow-parallel? undirected? new-attrs (atom -1))))
+    (Ubergraph. new-node-map allow-parallel? undirected? new-attrs (atom -1) (meta g))))
 
 (defn add-directed-edges
   "Adds directed edges, regardless of whether the underlying graph is directed or undirected"
@@ -687,29 +687,29 @@
 (defn multigraph
   "Multigraph constructor. See build-graph for description of valid inits"
   [& inits]
-  (apply build-graph (->Ubergraph {} true true {} (atom -1)) inits))
+  (apply build-graph (->Ubergraph {} true true {} (atom -1) {}) inits))
 
 (defn multidigraph
   "Multidigraph constructor. See build-graph for description of valid inits"
   [& inits]
-  (apply build-graph (->Ubergraph {} true false {} (atom -1)) inits))
+  (apply build-graph (->Ubergraph {} true false {} (atom -1) {}) inits))
 
 (defn graph
   "Graph constructor. See build-graph for description of valid inits"
   [& inits]
-  (apply build-graph (->Ubergraph {} false true {} (atom -1)) inits))
+  (apply build-graph (->Ubergraph {} false true {} (atom -1) {}) inits))
 
 (defn digraph
   "Digraph constructor. See build-graph for description of valid inits"
   [& inits]
-  (apply build-graph (->Ubergraph {} false false {} (atom -1)) inits))
+  (apply build-graph (->Ubergraph {} false false {} (atom -1) {}) inits))
 
 (defn ubergraph
   "General ubergraph construtor. Takes booleans for allow-parallel? and undirected? to
   call either graph, digraph, multigraph, or multidigraph.
   See build-graph for description of valid inits"
   [allow-parallel? undirected? & inits]
-  (apply build-graph (->Ubergraph {} allow-parallel? undirected? {} (atom -1)) inits))
+  (apply build-graph (->Ubergraph {} allow-parallel? undirected? {} (atom -1) {}) inits))
 
 ;; Serialize/deserialize to an edn Clojure data structure
 
