@@ -315,7 +315,7 @@ Two Ubergraph graphs `g1` and `g2` are equal if all of the following are true:
 * For every node `n`, the entire attribute map of `n` in `g1` is equal to the entire attribute map of `n` in `g2`
 * For every pair of nodes `n1`, `n2`, the edge(s) between them, ignoring edge uuids, but including the directionality and the entire attribute map for every edge, is equal.  For graphs allowing parallel edges, these are compared as multisets, i.e. if `g1` has 3 edges with attribute map `{:label 17}` and 2 edges with an empty attribute map, then `g2` must also have 3 edges with attribute map `{:label 17}` and 2 edges with an empty attribute map, to be equal to `g1`.
 
-[Graph ismorphism](https://en.wikipedia.org/wiki/Graph_isomorphism) is a more general idea of equality between graphs, in which nodes can be "relabeled" before comparing to see if they have the same edges.  That is a much more computationally expensive idea of graph equality to determine, and is not what Ubergraph `=` between graphs determines.  Thus `(= (graph [1 2]) (graph [2 3]))` is false, even though they both have two nodes with a single edge between them, so they would be considered isomorphic.
+[Graph isomorphism](https://en.wikipedia.org/wiki/Graph_isomorphism) is a more general idea of equality between graphs, in which nodes can be "relabeled" before comparing to see if they have the same edges.  That is a much more computationally expensive idea of graph equality to determine, and is not what Ubergraph `=` between graphs determines.  Thus `(= (graph [1 2]) (graph [2 3]))` is false, even though they both have two nodes with a single edge between them, so they would be considered isomorphic.
 
 ### Algorithms
 
