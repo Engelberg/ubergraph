@@ -12,24 +12,68 @@
 ; two sides of an undirected edge, so we can keep attributes and weight in sync
 ; and add/remove or otherwise mark them in sync.
 (defprotocol UndirectedGraph
-  (other-direction [g edge] "Returns the other direction of this edge in graph g"))
+  (other-direction [g edge]
+  "Returns the other direction of an undirected edge in graph g.  If
+  edge is a directed edge, returns nil."))
 
 ; We need a way to retrieve edges that is friendly to both regular and multi-graphs,
 ; but especially important for multi-graphs.
 (defprotocol QueryableGraph
-  (find-edges [g src dest] [g query] "Returns all edges that match the query")
-  (find-edge [g src dest] [g query] "Returns first edge that matches the query"))
+  (find-edges [g src dest] [g query]
+    "Returns all edges that match the query.
 
-; Sample queries
-; (find-edges g {:src 1, :dest 3, :color :red})  
-;    finds all edges from 1 to 3 with :color :red in edge attributes
-;
-; (find-edges g {:src 1, :weight 5})
-;    finds all edges from 1 with a weight of 5
-;
-; (find-edges g {:dest :Chicago, :airline :Delta, :time :afternoon})
-;    finds all edges leading to :Chicago with :airline :Delta and 
-;    :time :afternoon in edge attributes
+  (find-edges g src dest) and (find-edges g {:src src :dest dest})
+  return a sequence of edges in the graph g that are from node src to
+  node dest.  In graphs where parallel edges are allowed, there can be
+  more than one edge in this sequence.
+
+  If src and dest are different nodes, the sequence includes all
+  directed edges from src to dest once each, and all undirected edges
+  between src and dest once each.
+
+  If src and dest are the same node, directed 'self loop' edges are
+  included once each, but undirected 'self loop' edges are included
+  twice, one with mirror-edge? returning true, the other false.
+
+  (find-edges g {:src src}) without :dest is the same as (out-edges g
+  src), (find-edges g {:dest dest}) without :src is the same
+  as (in-edges g dest).  (find-edges g {}) is the same as (edges g).
+
+  Any keys other than :src or :dest in the map will be used to filter
+  the sequence of edges to only those that have at least those keys in
+  their attribute map, and equal associated values as those in the
+  query map.
+
+  Examples:
+
+  (find-edges g {:src 1, :dest 3, :color :red})
+     finds all edges from node 1 to node 3 with :color :red in edge
+     attributes.
+
+  (find-edges g {:src 1, :weight 5})
+     finds all edges from node 1 with a weight of 5.
+
+  (find-edges g {:dest :Chicago, :airline :Delta, :time :afternoon})
+     finds all edges leading to node :Chicago with :airline :Delta and
+     :time :afternoon in edge attributes.
+
+  For the implementation on type Ubergraph, returns in effectively
+  O(1) time, with effectively O(k) time to traverse all k edges in the
+  sequence.  The implementation traverses all k edges, internally
+  filtering for the ones that match the attribute part of a query, so
+  must traverse all edges that do not satisfy the attribute
+  conditions, even though they are not included in the returned
+  sequence.")
+  (find-edge [g src dest] [g query]
+    "Returns first edge that matches the query, same
+  as (first (find-edges ...)).  Returns nil if no edges match the
+  query.
+
+  For the implementation on type Ubergraph, returns in effectively
+  O(1) time when there are no attributes to match.  When there are
+  attributes to match, returns in effectively O(k) time, where k is
+  the number of edges traversed until the first edge matching the
+  query is found."))
 
 ; It would be nice to have a way to incorporate both undirected and directed edges
 ; into the same graph structure.
