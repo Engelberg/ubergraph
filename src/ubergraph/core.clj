@@ -14,66 +14,67 @@
             [clojure.pprint]))
 
 (import-vars
- [loom.graph
-  ;; Graph protocol
-  nodes
-  edges
-  has-node?
-  has-edge?
-  successors*
-  out-degree
-  out-edges
-  ;; Digraph protocol
-  predecessors*
-  in-degree
-  in-edges
-  transpose
-  ;; WeightedGraph protocol
-  weight*
-  ;; EditableGraph protocol
-  add-nodes*
-  add-edges*
-  remove-nodes*
-  remove-edges*
-  remove-all
-  ;; Edge protocol
-  src
-  dest
-  ;; Helper functions
-  successors
-  predecessors
-  weight
-  add-nodes
-  add-edges
-  remove-nodes
-  remove-edges]
+  [loom.graph
+   ;; Graph protocol
+   nodes
+   edges
+   has-node?
+   has-edge?
+   successors*
+   out-degree
+   out-edges
+   ;; Digraph protocol
+   predecessors*
+   in-degree
+   in-edges
+   transpose
+   ;; WeightedGraph protocol
+   weight*
+   ;; EditableGraph protocol
+   add-nodes*
+   add-edges*
+   remove-nodes*
+   remove-edges*
+   remove-all
+   ;; Edge protocol
+   src
+   dest
+   ;; Helper functions
+   successors
+   predecessors
+   weight
+   add-nodes
+   add-edges
+   remove-nodes
+   remove-edges
+   subgraph]
 
- [loom.attr
-  ;; AttrGraph protocol
-  add-attr
-  remove-attr
-  attr
-  attrs]
+  [loom.attr
+   ;; AttrGraph protocol
+   add-attr
+   remove-attr
+   attr
+   attrs]
 
- [ubergraph.protocols
-  ;; UndirectedGraph protocol
-  other-direction
-  ;; QueryableGraph protocol
-  find-edges
-  find-edge
-  ;; Attrs protocol
-  add-attrs
-  remove-attrs
-  set-attrs
-  ;; MixedDirectionEdgeTests protocol
-  undirected-edge?
-  directed-edge?
-  mirror-edge?
-  ;; MixedDirectionGraph protocol
-  add-directed-edges*
-  add-undirected-edges*
-  ;; Ubergraph recognition protocol
-  ubergraph?])
+  [ubergraph.protocols
+   ;; UndirectedGraph protocol
+   other-direction
+   ;; QueryableGraph protocol
+   find-edges
+   find-edge
+   ;; Attrs protocol
+   add-attrs
+   remove-attrs
+   set-attrs
+   ;; MixedDirectionEdgeTests protocol
+   undirected-edge?
+   directed-edge?
+   mirror-edge?
+   ;; MixedDirectionGraph protocol
+   add-directed-edges*
+   add-undirected-edges*
+   ;; Ubergraph recognition protocol
+   ubergraph?])
    
    
 
