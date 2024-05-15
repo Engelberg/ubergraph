@@ -18,7 +18,7 @@ Ubergraph is a great choice for people who:
 
 Add the following line to your leiningen dependencies:
 
-    [ubergraph "0.8.2"]
+    [ubergraph "0.9.0"]
 
 Require ubergraph in your namespace header:
 
@@ -31,7 +31,7 @@ For example, rather than calling `loom.graph/out-edges` and `loom.attr/add-attr`
 
 ### Requirements
 
-Ubergraph is tested on Clojure 1.10.  Some of the graph algorithms require Java 8 or greater.
+Ubergraph is tested on Clojure 1.11.  Some of the graph algorithms require Java 8 or greater.
 
 ### API
 

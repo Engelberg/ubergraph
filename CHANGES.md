@@ -1,5 +1,12 @@
 # Ubergraph Change Log
 
+## 0.9.0
+
+### Bugfixes
+
+* Fixed bug in Loom's implementation of weight.
+* Updated dependencies, including the new version of dorothy which unfortunately broke backwards compatibility with previous versions of dorothy by moving some functions into a new namespace.
+
 ## 0.8.2
 
 ### Bugfixes

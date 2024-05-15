@@ -10,6 +10,7 @@
             [loom.attr :as la]
             [ubergraph.protocols :as up]
             [dorothy.core :as d]
+            [dorothy.jvm :as dj]
             [clojure.string :as str]
             [clojure.pprint]))
 
@@ -42,11 +43,11 @@
   ;; Helper functions
   successors
   predecessors
-  weight
   add-nodes
   add-edges
   remove-nodes
-  remove-edges]
+  remove-edges
+  subgraph]
 
  [loom.attr
   ;; AttrGraph protocol
@@ -125,6 +126,16 @@
          edge-description->edge resolve-node-or-edge
          force-add-directed-edge force-add-undirected-edge remove-edges
          equal-graphs? hash-graph build-graph)
+
+;; There is a bug in loom's implementation of weight. We fix it here.
+
+(defn weight
+  "Returns the weight of edge e or edge [n1 n2]"
+  ([g] (partial weight g))
+  ([g e] (weight* g e))
+  ([g n1 n2] (weight* g n1 n2)))
+
+(alter-var-root #'lg/weight (fn [x] weight))
 
 (def-map-type Ubergraph [node-map allow-parallel? undirected? attrs cached-hash]
   AbstractMap
@@ -960,5 +971,5 @@
          d/dot
          (cond->
              (and save (= :dot format)) (#(spit filename %))
-             (and save (not= :dot format)) (d/save! filename {:format format})
-             (not save) d/show!)))))
+             (and save (not= :dot format)) (dj/save! filename {:format format})
+             (not save) dj/show!)))))

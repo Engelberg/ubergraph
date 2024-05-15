@@ -52,9 +52,9 @@
 
 (def reverse-solved-grid (reverse-index (:grid solved-state)))
 
-(defn abs [n] (if (neg? n) (- n) n))
+(defn absolute-value [n] (if (neg? n) (- n) n))
 (defn taxi-distance [[x1 y1] [x2 y2]]
-  (+ (abs (- x1 x2)) (abs (- y1 y2))))
+  (+ (absolute-value (- x1 x2)) (absolute-value (- y1 y2))))
 
 (defn lower-bound [{:keys [grid]}]
   (let [lookup (reverse-index grid)]
