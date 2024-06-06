@@ -83,6 +83,133 @@
 (alter-meta! #'add-edges assoc
              :doc "Adds edges to graph g of the form [n1 n2], [n1 n2 weight], or [n1 n2 attr-map].")
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Make many doc strings more informative
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(alter-meta!
+ #'nodes assoc :doc
+ "Return a sequence of the nodes in graph g.
+
+  For the implementation on type Ubergraph, returns in O(1) time, with
+  effectively O(n) time to traverse all n nodes.")
+
+(alter-meta!
+ #'edges assoc :doc
+ "Return a sequence of the edges of graph g.  Any undirected edges in
+  the graph appear twice in this sequence, one as an edge e1
+  with (mirror-edge? e1) equal to true, the other as an edge e2
+  with (mirror-edge? e2) equal to false.  This is so even for
+  undirected self loop edges, i.e. with both node endpoints equal to
+  each other.
+
+  For the implementation on type Ubergraph, returns in O(1) time, with
+  effectively O(m) time to traverse all m edges.")
+
+(alter-meta!
+ #'has-node? assoc :doc
+ "Return true if node is in g, otherwise false.
+
+  For the implementation on type Ubergraph, returns in effectively
+  O(1) time, the same as looking up a value as a key in a map.")
+
+(alter-meta!
+ #'has-edge? assoc :doc
+ "Return true if there is an edge from node n1 to n2 in g, otherwise
+  false.  There is an edge from node n1 to n2 if there is a directed
+  edge from n1 to n2, or if there is an undirected edge between those
+  two nodes.
+
+  For the implementation on type Ubergraph, returns in effectively
+  O(1) time.")
+
+(alter-meta!
+ #'out-degree assoc :doc
+ "Return the number of outgoing edges of node.  This is the same value
+  as (count (ubergraph.core/out-edges g node)).
+
+  For the implementation on type Ubergraph, returns the answer from a
+  precalculated stored value, in effectively O(1) time.")
+
+(alter-meta!
+ #'out-edges assoc :doc
+ "Return a sequence of all of the outgoing edges of node.  If the
+  graph has multiple parallel edges between nodes, all of them are
+  included.
+
+  If the node has any directed 'self loop' edges to itself, they are
+  included once.  Undirected self loop edges are included twice, one
+  with mirror-edge? equal to true, the other with mirror-edge? equal
+  to false.
+
+  For the implementation on type Ubergraph, returns in effectively
+  O(1) time, with effectively O(k) time to traverse the sequence of k
+  edges.")
+
+(alter-meta!
+ #'in-degree assoc :doc
+ "Return the number of incoming edges of node.  This is the same value
+  as (count (ubergraph.core/in-edges g node)).
+
+  For the implementation on type Ubergraph, returns the answer from a
+  precalculated stored value, in effectively O(1) time.")
+
+(alter-meta!
+ #'in-edges assoc :doc
+ "Return a sequence of all of the incoming edges of node.  If the
+  graph has multiple parallel edges between nodes, all of them are
+  included.
+
+  If the node has any directed 'self loop' edges to itself, they are
+  included once.  Undirected self loop edges are included twice, one
+  with mirror-edge? equal to true, the other with mirror-edge? equal
+  to false.
+
+  For the implementation on type Ubergraph, returns in effectively
+  O(1) time, with effectively O(k) time to traverse the sequence of k
+  edges.")
+
+(alter-meta!
+ #'src assoc :doc
+ "Returns the source node of the edge.
+
+  For the implementation on type Ubergraph, returns in O(1) time.")
+
+(alter-meta!
+ #'dest assoc :doc
+ "Returns the dest node of the edge.
+
+  For the implementation on type Ubergraph, returns in O(1) time.")
+
+(alter-meta!
+ #'successors assoc :doc
+  "Return a sequence of nodes in the graph g that are direct
+  successors of the given node.  Node v is a direct successor of node
+  u if there is a directed edge from u to v, or an undirected edge
+  between them.  A node u is returned as a successor of itself if
+  there is a 'self loop' edge from u to u.  Every successor node is
+  guaranteed to appear exactly once in the returned sequence, even if
+  there are multiple parallel edges that make it a successor.
+
+  For the implementation on type Ubergraph, returns in effectively
+  O(1) time to return the sequence, with effectively O(k) time to
+  traverse all k nodes returned.")
+
+(alter-meta!
+ #'predecessors assoc :doc
+  "Return a sequence of nodes in the graph g that are direct
+  predecessors of the given node.  Node v is a direct predecessor of
+  node u if there is a directed edge from v to u, or an undirected
+  edge between them.  A node u is returned as a predecessor of itself
+  if there is a 'self loop' edge from u to u.  Every predecessor node
+  is guaranteed to appear exactly once in the returned sequence, even
+  if there are multiple parallel edges that make it a predecessor.
+
+  For the implementation on type Ubergraph, returns in effectively
+  O(1) time to return the sequence, with effectively O(k) time to
+  traverse all k nodes returned.")
+
+
 ;; This namespace provides a concrete implementation of ubergraph.protocols, which is
 ;; a conservative extension to Loom's protocols.
 
